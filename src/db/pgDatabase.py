@@ -55,7 +55,7 @@ class OperatePgsql(object):
             check_sql = f"""
                 SELECT COUNT(*) 
                 FROM {table_name} 
-                WHERE call_id = ANY(%s)
+                WHERE p_day_id = ANY(%s)
             """
             cursor.execute(check_sql, (call_ids,))
             existing_count = cursor.fetchone()[0]
