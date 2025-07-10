@@ -203,11 +203,6 @@ class TransportScheduler:
         logger.info("调度器已停止")
 
 
-def print_hi(name):
-    """原有的示例函数"""
-    print(f'Hi, {name}')
-
-
 def main():
     """主函数"""
     logger.info("=== Transportation定时任务管理器启动 ===")

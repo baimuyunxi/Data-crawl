@@ -49,6 +49,41 @@ def safe_convert_to_int(value):
         return None
 
 
+def process_single_date_data(result_df):
+    """
+    处理单个日期的数据，进行类型转换和清理
+    """
+    if result_df is None or result_df.empty:
+        return None
+
+    # 处理 p_day_id
+    if 'p_day_id' in result_df.columns:
+        result_df['p_day_id'] = result_df['p_day_id'].astype(str)
+
+    # 处理 artCallinCt - 转换为整数类型，保持None值
+    if 'artCallinCt' in result_df.columns:
+        result_df['artCallinCt'] = result_df['artCallinCt'].apply(safe_convert_to_int)
+
+    # 处理百分比字段 - 转换为数值类型，保持None值
+    percentage_columns = ['conn15Rate', 'onceRate', 'artConnRt']
+
+    for col in percentage_columns:
+        if col in result_df.columns:
+            result_df[col] = result_df[col].apply(convert_percentage_to_numeric)
+
+    # 入库前删除值为None的列
+    columns_to_drop = []
+    for col in result_df.columns:
+        if result_df[col].iloc[0] is None:
+            columns_to_drop.append(col)
+
+    if columns_to_drop:
+        print(f"删除None值列: {columns_to_drop}")
+        result_df = result_df.drop(columns=columns_to_drop)
+
+    return result_df
+
+
 def main():
     # 获取当前日期
     today = datetime.date.today()
@@ -145,14 +180,29 @@ def main():
                             # 转换为单行DataFrame
                             final_result = pd.DataFrame([merged_data])
                             print("数据合并完成（单行格式）")
-                            return final_result
+
+                            # 处理数据类型转换和清理
+                            processed_result = process_single_date_data(final_result)
+
+                            if processed_result is not None:
+                                print("\n=== 数据处理后结果 ===")
+                                print(processed_result)
+
+                                # 导入数据库
+                                try:
+                                    xp.insert_data(processed_result, 'central_indicator_monitor_data')
+                                    print("\n=== 数据库插入成功 ===")
+                                    return processed_result
+                                except Exception as e:
+                                    print(f"\n=== 数据库插入失败 ===")
+                                    print(f"错误信息: {e}")
+                                    return None
+                            else:
+                                print("数据处理失败")
+                                return None
                         else:
                             print("警告：部分数据获取失败")
-                            return pd.DataFrame([{
-                                'p_day_id': p_day_id,
-                                'basic_data': data,
-                                'zun_old_data': data_zl
-                            }])
+                            return None
 
                     except Exception as e:
                         print(f"数据获取过程中发生错误: {e}")
@@ -176,46 +226,9 @@ if __name__ == "__main__":
     result = main()
 
     if result is not None:
-        print("\n=== 最终结果 ===")
+        print("\n=== 执行成功 ===")
+        print(f"成功处理了 1 条记录")
         print(result)
-
-        # 处理 p_day_id
-        if 'p_day_id' in result.columns:
-            result['p_day_id'] = result['p_day_id'].astype(str)
-
-        # 处理 artCallinCt - 转换为整数类型，保持None值
-        if 'artCallinCt' in result.columns:
-            result['artCallinCt'] = result['artCallinCt'].apply(safe_convert_to_int)
-
-        # 处理百分比字段 - 转换为数值类型，保持None值
-        percentage_columns = ['conn15Rate', 'onceRate', 'artConnRt']
-
-        for col in percentage_columns:
-            if col in result.columns:
-                result[col] = result[col].apply(convert_percentage_to_numeric)
-
-        print("\n=== 数据类型转换后结果 ===")
-        print(result)
-
-        # 入库前删除值为None的列
-        columns_to_drop = []
-        for col in result.columns:
-            if result[col].iloc[0] is None:
-                columns_to_drop.append(col)
-
-        if columns_to_drop:
-            print(f"\n=== 删除None值列 ===")
-            print(f"删除的列: {columns_to_drop}")
-            result = result.drop(columns=columns_to_drop)
-
-        # 导入数据库
-        try:
-            xp.insert_data(result, 'central_indicator_monitor_data')
-            print("\n=== 数据库插入成功 ===")
-        except Exception as e:
-            print(f"\n=== 数据库插入失败 ===")
-            print(f"错误信息: {e}")
-
     else:
         print("\n=== 执行失败 ===")
         print("未能成功获取数据")

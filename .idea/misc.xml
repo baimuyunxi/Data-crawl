@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="python3.12" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="python3.12" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="transport_min" project-jdk-type="Python SDK" />
 </project>
