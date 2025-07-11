@@ -9,6 +9,7 @@ import time
 import schedule
 from DrissionPage import Chromium
 
+from src.importtation import main as import_main  # 新增导入
 from src.transporttation import main as transport_main
 
 # 配置日志
@@ -80,6 +81,17 @@ class TransportScheduler:
                 logger.warning("transportation任务执行失败")
         except Exception as e:
             logger.error(f"执行transportation任务时发生错误: {e}")
+
+        # 执行完transportation后，立即执行importtation
+        try:
+            logger.info("开始执行importtation任务...")
+            result = import_main()
+            if result is not None:
+                logger.info("importtation任务执行成功")
+            else:
+                logger.warning("importtation任务执行失败")
+        except Exception as e:
+            logger.error(f"执行importtation任务时发生错误: {e}")
 
     def check_and_refresh_tab(self):
         """检测标签页并刷新"""
@@ -155,9 +167,9 @@ class TransportScheduler:
         self.is_running = True
         logger.info("启动定时任务调度器...")
 
-        # 设置每日8:00的定时任务
-        schedule.every().day.at("08:00").do(self.daily_transportation_job)
-        logger.info("已设置每日8:00定时任务")
+        # 设置每日08:05的定时任务
+        schedule.every().day.at("08:05").do(self.daily_transportation_job)
+        logger.info("已设置每日08:05定时任务")
 
         # 如果是首次运行，执行首次启动流程
         if self.is_first_run:
@@ -205,12 +217,12 @@ class TransportScheduler:
 
 def main():
     """主函数"""
-    logger.info("=== Transportation定时任务管理器启动 ===")
+    logger.info("=== 定时任务管理器启动 ===")
     logger.info(f"当前时间: {datetime.datetime.now()}")
     logger.info("任务配置:")
-    logger.info("- 首次运行: 启动浏览器，等待5分钟后执行transportation")
+    logger.info("- 首次运行: 启动浏览器，等待5分钟后执行第一次试运行")
     logger.info("- 标签页监控: 每20分钟检测并刷新'10000号运营管理平台'标签页")
-    logger.info("- 定时任务: 每日8:00自动执行transportation")
+    logger.info("- 定时任务: 每日8:00自动执行")
     logger.info("=" * 50)
 
     # 创建调度器实例
