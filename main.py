@@ -93,6 +93,28 @@ class TransportScheduler:
         except Exception as e:
             logger.error(f"执行importtation任务时发生错误: {e}")
 
+    def check_and_refresh_high_frequency_tab(self):
+        """检测高频呼入统计报表标签页并刷新"""
+        if not self.browser:
+            logger.warning("浏览器未初始化，无法检测标签页")
+            return False
+
+        try:
+            # 尝试获取高频呼入统计报表标签页
+            tab = self.browser.get_tab(title='高频呼入统计报表')
+            if tab:
+                logger.info("检测到高频呼入统计报表标签页，执行刷新...")
+                tab.refresh()
+                logger.info("高频呼入统计报表标签页刷新完成")
+                time.sleep(5)  # 等待页面加载
+                return True
+            else:
+                logger.warning("未找到目标标签页: '高频呼入统计报表'")
+                return False
+        except Exception as e:
+            logger.error(f"检测或刷新高频呼入统计报表标签页时发生错误: {e}")
+            return False
+
     def check_and_refresh_tab(self):
         """检测标签页并刷新"""
         if not self.browser:
@@ -115,18 +137,52 @@ class TransportScheduler:
             logger.error(f"检测或刷新标签页时发生错误: {e}")
             return False
 
+    def get_next_refresh_time(self):
+        """计算下次刷新时间（00、20、40分）"""
+        now = datetime.datetime.now()
+        current_minute = now.minute
+
+        # 找到下一个刷新时间点
+        if current_minute < 20:
+            next_minute = 20
+            next_hour = now.hour
+        elif current_minute < 40:
+            next_minute = 40
+            next_hour = now.hour
+        else:
+            next_minute = 0
+            next_hour = now.hour + 1
+            if next_hour >= 24:
+                next_hour = 0
+
+        # 构造下次刷新时间
+        next_refresh = now.replace(minute=next_minute, second=0, microsecond=0)
+        if next_minute == 0:
+            next_refresh = next_refresh.replace(hour=next_hour)
+            if next_hour == 0:
+                next_refresh = next_refresh + datetime.timedelta(days=1)
+
+        return next_refresh
+
     def tab_monitoring_loop(self):
-        """标签页监控循环（每20分钟执行一次）"""
+        """标签页监控循环（每小时00、20、40分刷新）"""
         while not self.stop_flag:
             try:
-                # 等待20分钟
-                for _ in range(1200):  # 20分钟 = 1200秒
+                # 计算下次刷新时间
+                next_refresh = self.get_next_refresh_time()
+                logger.info(f"下次标签页刷新时间: {next_refresh.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                # 等待到下次刷新时间
+                while datetime.datetime.now() < next_refresh:
                     if self.stop_flag:
                         break
                     time.sleep(1)
 
                 if not self.stop_flag:
+                    current_time = datetime.datetime.now()
+                    logger.info(f"执行定时标签页刷新 - 当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
                     self.check_and_refresh_tab()
+                    self.check_and_refresh_high_frequency_tab()
 
             except Exception as e:
                 logger.error(f"标签页监控循环中发生错误: {e}")
@@ -138,13 +194,13 @@ class TransportScheduler:
             logger.info("标签页监控线程已在运行")
             return
 
-        logger.info("启动标签页监控线程（每20分钟刷新一次）...")
+        logger.info("启动标签页监控线程（每小时00、20、40分刷新）...")
         self.tab_check_thread = threading.Thread(target=self.tab_monitoring_loop, daemon=True)
         self.tab_check_thread.start()
 
     def daily_transportation_job(self):
-        """每日8:00执行的transportation任务"""
-        logger.info("执行每日8:00定时任务...")
+        """每日9:05执行的transportation任务"""
+        logger.info("执行每日9:05定时任务...")
 
         # 确保浏览器已启动
         if not self.browser:
@@ -154,6 +210,7 @@ class TransportScheduler:
 
         # 先刷新标签页
         self.check_and_refresh_tab()
+        self.check_and_refresh_high_frequency_tab()
 
         # 执行transportation
         self.execute_transportation()
@@ -168,8 +225,8 @@ class TransportScheduler:
         logger.info("启动定时任务调度器...")
 
         # 设置每日08:05的定时任务
-        schedule.every().day.at("08:05").do(self.daily_transportation_job)
-        logger.info("已设置每日08:05定时任务")
+        schedule.every().day.at("09:05").do(self.daily_transportation_job)
+        logger.info("已设置每日09:05定时任务")
 
         # 如果是首次运行，执行首次启动流程
         if self.is_first_run:
@@ -221,8 +278,8 @@ def main():
     logger.info(f"当前时间: {datetime.datetime.now()}")
     logger.info("任务配置:")
     logger.info("- 首次运行: 启动浏览器，等待5分钟后执行第一次试运行")
-    logger.info("- 标签页监控: 每20分钟检测并刷新'10000号运营管理平台'标签页")
-    logger.info("- 定时任务: 每日8:00自动执行")
+    logger.info("- 标签页监控: 每小时00、20、40分检测并刷新 指定 标签页")
+    logger.info("- 定时任务: 每日9:05自动执行")
     logger.info("=" * 50)
 
     # 创建调度器实例
