@@ -239,4 +239,4 @@ def main():
 
 if __name__ == "__main__":
     # 执行主函数
-    main()
+    result = main()
