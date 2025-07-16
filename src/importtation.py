@@ -65,6 +65,39 @@ def process_single_date_data(result_df):
     return result_df
 
 
+def insert_indicator_data(p_day_id, field_name, field_value):
+    """
+    插入单个指标数据到数据库
+    """
+    if field_value is None:
+        print(f"指标 {field_name} 值为None，跳过入库")
+        return False
+
+    # 构造单行数据
+    data_dict = {
+        'p_day_id': p_day_id,
+        field_name: field_value
+    }
+
+    # 转换为DataFrame
+    df = pd.DataFrame([data_dict])
+
+    # 处理数据类型转换和清理
+    processed_df = process_single_date_data(df)
+
+    if processed_df is not None and not processed_df.empty:
+        try:
+            xp.insert_data(processed_df, 'central_indicator_monitor_data')
+            print(f"指标 {field_name} 入库成功，值: {field_value}")
+            return True
+        except Exception as e:
+            print(f"指标 {field_name} 入库失败: {e}")
+            return False
+    else:
+        print(f"指标 {field_name} 数据处理后为空，跳过入库")
+        return False
+
+
 def main():
     # 获取当前日期
     today = datetime.date.today()
@@ -74,7 +107,9 @@ def main():
 
     now_today = yesterday.strftime('%Y 年 %m 月 %d 日')
     print(f"查询日期: {now_today}")
-    row_data = {}
+
+    # 生成日期字段
+    p_day_id = yesterday.strftime('%Y%m%d')
 
     # 连接浏览器
     browser = Chromium()
@@ -82,140 +117,121 @@ def main():
     print('开始获取文字客服服务量与接通率')
 
     # 获取条件标签页
-    tab = browser.get_tab(title='IM会话服务量接通率多维分析')
-
-    print('刷新浏览器tab页')
-    tab.refresh()
-    time.sleep(30)
-
     try:
-        # 文字客服呼入量(wordCallinCt)
-        element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[2]')
-        if element:
-            row_data['wordCallinCt'] = element.text.strip()
-            print(f"获取到 文字客服呼入量 值: {row_data['wordCallinCt']}")
+        tab = browser.get_tab(title='IM会话服务量接通率多维分析')
+        if tab is None:
+            print("未找到 IM会话服务量接通率多维分析 标签页，跳过该部分")
         else:
-            print("未找到 文字客服呼入量 元素")
-            row_data['wordCallinCt'] = None
-
-        # 文字客服5分钟接通率(word5Rate)
-        element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[11]')
-        if element:
-            row_data['word5Rate'] = element.text.strip()
-            print(f"获取到 文字客服5分钟接通率 值: {row_data['word5Rate']}")
-        else:
-            print("未找到 文字客服5分钟接通率 元素")
-            row_data['word5Rate'] = None
-
+            print('刷新浏览器tab页')
+            tab.refresh()
+            time.sleep(30)
     except Exception as e:
-        print(f"文字客服数据获取出错: {e}")
-        return pd.DataFrame()
+        print(f"获取 IM会话服务量接通率多维分析 标签页失败: {e}，跳过该部分")
+        tab = None
+
+    if tab is not None:
+        try:
+            # 文字客服呼入量(wordCallinCt)
+            element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[2]')
+            if element:
+                wordCallinCt = element.text.strip()
+                print(f"获取到 文字客服呼入量 值: {wordCallinCt}")
+                # 立即入库
+                insert_indicator_data(p_day_id, 'wordCallinCt', wordCallinCt)
+            else:
+                print("未找到 文字客服呼入量 元素")
+
+            # 文字客服5分钟接通率(word5Rate)
+            element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[11]')
+            if element:
+                word5Rate = element.text.strip()
+                print(f"获取到 文字客服5分钟接通率 值: {word5Rate}")
+                # 立即入库
+                insert_indicator_data(p_day_id, 'word5Rate', word5Rate)
+            else:
+                print("未找到 文字客服5分钟接通率 元素")
+
+        except Exception as e:
+            print(f"文字客服数据获取出错: {e}")
+
 
     print('开始获取远程柜台服务量与接通率')
 
     # 获取条件标签页
-    tab = browser.get_tab(title='远程柜台服务量接通率多维分析')
-
-    print('刷新浏览器tab页')
-    tab.refresh()
-    time.sleep(30)
-
     try:
-        # 远程柜台呼入量(farCabinetCt)
-        element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[2]')
-        if element:
-            row_data['farCabinetCt'] = element.text.strip()
-            print(f"获取到 远程柜台呼入量 值: {row_data['farCabinetCt']}")
+        tab = browser.get_tab(title='远程柜台服务量接通率多维分析')
+        if tab is None:
+            print("未找到 远程柜台服务量接通率多维分析 标签页，跳过该部分")
         else:
-            print("未找到 远程柜台呼入量 元素")
-            row_data['farCabinetCt'] = None
-
-        # 远程柜台25秒接通率(farCabinetRate)
-        element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[6]')
-        if element:
-            row_data['farCabinetRate'] = element.text.strip()
-            print(f"获取到 远程柜台25秒接通率 值: {row_data['farCabinetRate']}")
-        else:
-            print("未找到 远程柜台25秒接通率 元素")
-            row_data['farCabinetRate'] = None
-
+            print('刷新浏览器tab页')
+            tab.refresh()
+            time.sleep(30)
     except Exception as e:
-        print(f"远程柜台数据获取出错: {e}")
-        return pd.DataFrame()
+        print(f"获取 远程柜台服务量接通率多维分析 标签页失败: {e}，跳过该部分")
+        tab = None
+
+    if tab is not None:
+        try:
+            # 远程柜台呼入量(farCabinetCt)
+            element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[2]')
+            if element:
+                farCabinetCt = element.text.strip()
+                print(f"获取到 远程柜台呼入量 值: {farCabinetCt}")
+                # 立即入库
+                insert_indicator_data(p_day_id, 'farCabinetCt', farCabinetCt)
+            else:
+                print("未找到 远程柜台呼入量 元素")
+
+            # 远程柜台25秒接通率(farCabinetRate)
+            element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[6]')
+            if element:
+                farCabinetRate = element.text.strip()
+                print(f"获取到 远程柜台25秒接通率 值: {farCabinetRate}")
+                # 立即入库
+                insert_indicator_data(p_day_id, 'farCabinetRate', farCabinetRate)
+            else:
+                print("未找到 远程柜台25秒接通率 元素")
+
+        except Exception as e:
+            print(f"远程柜台数据获取出错: {e}")
 
     print('获取10000号重复来电率')
+
     # 获取条件标签页
-    tab = browser.get_tab(title='高频呼入统计报表')
-
-    print('刷新浏览器tab页')
-    tab.refresh()
-    time.sleep(30)
-
-    print('选择10000号接入号')
-    tab.ele('xpath://span[@id="undefined_4_switch"]').click()
-    time.sleep(5)
-    print('开始拖拽')
-    tab.actions.hold('xpath://span[@id="undefined_20_span"]/span[1]').release(
-        'xpath://div[contains(@class,"left ui-droppable")]')
-    tab.actions.release()
-    time.sleep(20)
-
     try:
-        # 10000号重复来电率(repeatRate)
-        element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[7]')
-        if element:
-            row_data['repeatRate'] = element.text.strip()
-            print(f"获取到 10000号重复来电率 值: {row_data['repeatRate']}")
+        tab = browser.get_tab(title='高频呼入统计报表')
+        if tab is None:
+            print("未找到 高频呼入统计报表 标签页，跳过该部分")
         else:
-            print("未找到 10000号重复来电率 元素")
-            row_data['repeatRate'] = None
-
+            print('刷新浏览器tab页')
+            tab.refresh()
+            time.sleep(30)
     except Exception as e:
-        print(f"10000号重复来电率数据获取出错: {e}")
-        return pd.DataFrame()
+        print(f"获取 高频呼入统计报表 标签页失败: {e}，跳过该部分")
+        tab = None
 
-    data = pd.DataFrame([row_data])
+    if tab is not None:
+        try:
+            print('选择10000号接入号')
+            tab.ele('xpath://span[@id="undefined_4_switch"]').click()
+            time.sleep(5)
+            print('开始拖拽')
+            tab.actions.hold('xpath://span[@id="undefined_20_span"]/span[1]').release(
+                'xpath://div[contains(@class,"left ui-droppable")]')
+            tab.actions.release()
+            time.sleep(20)
+            # 10000号重复来电率(repeatRate)
+            element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[7]')
+            if element:
+                repeatRate = element.text.strip()
+                print(f"获取到 10000号重复来电率 值: {repeatRate}")
+                # 立即入库
+                insert_indicator_data(p_day_id, 'repeatRate', repeatRate)
+            else:
+                print("未找到 10000号重复来电率 元素")
 
-    # 生成日期字段
-    p_day_id = yesterday.strftime('%Y%m%d')
-
-    # 合并数据为一行
-    if data is not None:
-        # 初始化结果字典
-        merged_data = {
-            'p_day_id': p_day_id,
-        }
-        # 处理基础数据
-        if isinstance(data, pd.DataFrame):
-            # 将DataFrame转换为字典，合并所有非空值
-            for col in data.columns:
-                non_null_values = data[col].dropna()
-                if not non_null_values.empty:
-                    merged_data[col] = non_null_values.iloc[0]
-        elif isinstance(data, dict):
-            merged_data.update(data)
-
-        # 转换为单行DataFrame
-        final_result = pd.DataFrame([merged_data])
-        print("数据合并完成（单行格式）")
-
-        # 处理数据类型转换和清理
-        processed_result = process_single_date_data(final_result)
-
-        if processed_result is not None:
-            print("\n=== 数据处理后结果 ===")
-            print(processed_result)
-
-            # 导入数据库
-            try:
-                xp.insert_data(processed_result, 'central_indicator_monitor_data')
-                print("\n=== 数据库插入成功 ===")
-                return processed_result
-            except Exception as e:
-                print(f"\n=== 数据库插入失败 ===")
-                print(f"错误信息: {e}")
-                return None
-
+        except Exception as e:
+            print(f"10000号重复来电率数据获取出错: {e}")
 
 if __name__ == "__main__":
     # 执行主函数
