@@ -1,5 +1,10 @@
+import logging
+
 import psycopg2
 from psycopg2.extras import RealDictCursor, execute_values
+
+# 配置日志记录器
+logger = logging.getLogger(__name__)
 
 
 class OperatePgsql(object):
@@ -74,12 +79,12 @@ class OperatePgsql(object):
             execute_values(cursor, sql, values)
 
             self.connection.commit()
-            print(f"数据操作完成: 插入 {new_count} 条新记录，更新 {existing_count} 条已有记录")
+            logger.info(f"数据操作完成: 插入 {new_count} 条新记录，更新 {existing_count} 条已有记录")
 
             return new_count, existing_count
 
         except Exception as e:
-            print(f"数据操作异常: {e}")
+            logger.error(f"数据操作异常: {e}")
             self.connection.rollback()
             return 0, 0
         finally:

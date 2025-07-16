@@ -1,4 +1,5 @@
 import datetime
+import logging
 import time
 
 import pandas as pd
@@ -6,6 +7,9 @@ from DrissionPage import Chromium
 
 from db.pgDatabase import OperatePgsql
 from util.hw_util import query_data, query_zun_old, select_hunan_province, select_time_province
+
+# 配置日志记录器
+logger = logging.getLogger(__name__)
 
 xp = OperatePgsql()
 
@@ -78,7 +82,7 @@ def process_single_date_data(result_df):
             columns_to_drop.append(col)
 
     if columns_to_drop:
-        print(f"删除None值列: {columns_to_drop}")
+        logger.info(f"删除None值列: {columns_to_drop}")
         result_df = result_df.drop(columns=columns_to_drop)
 
     return result_df
@@ -92,7 +96,7 @@ def main():
     yesterday = today - datetime.timedelta(days=1)
 
     now_today = yesterday.strftime('%Y 年 %m 月 %d 日')
-    print(f"查询日期: {now_today}")
+    logger.info(f"查询日期: {now_today}")
 
     # 连接浏览器
     browser = Chromium()
@@ -100,7 +104,7 @@ def main():
     # 获取条件标签页
     tab = browser.get_tab(title='10000号运营管理平台')
 
-    print('刷新浏览器tab页')
+    logger.info('刷新浏览器tab页')
     tab.refresh()
     time.sleep(5)
 
@@ -109,23 +113,23 @@ def main():
         icon_span = tab.ele('tag:span@class=icon-tabs')
         if icon_span:
             icon_span.click()
-            print("成功点击了图标")
+            logger.info("成功点击了图标")
         else:
             tab.ele('xpath://div[@id="main"]/div[3]/section[1]/section[1]/aside[1]/div[1]/div[1]/ul[1]/li[6]').click()
-            print("未找到图标元素")
+            logger.info("未找到图标元素")
     else:
-        print("跳过点击侧边栏收缩！")
+        logger.info("跳过点击侧边栏收缩！")
 
     # 点击 话务运营重点指标 栏
     route_zdzb = tab.ele('tag:span@title=话务运营重点指标')
     if route_zdzb:
         route_zdzb.click()
-        print("点击话务运营重点指标")
+        logger.info("点击话务运营重点指标")
         time.sleep(2)
 
         # 执行地区选择
         if select_hunan_province(tab):
-            print("地区选择完成")
+            logger.info("地区选择完成")
             time.sleep(2)
 
             # 执行日期选择
@@ -134,18 +138,18 @@ def main():
                 search_button = tab.ele('xpath://button[@id="searchColClass-search"]/span[1]')
                 if search_button:
                     search_button.click()
-                    print("完成指定日期查询！")
+                    logger.info("完成指定日期查询！")
                     time.sleep(2)  # 等待页面加载
 
                     # 获取数据
                     try:
                         # 获取语音人工呼入量（artCallinCt)、语音客服15s接通率（conn15Rate）、10000号人工一解率（onceRate)
                         data = query_data(tab)
-                        print("成功获取基础数据")
+                        logger.info("成功获取基础数据")
 
                         # 获取尊老用户数据
                         data_zl = query_zun_old(tab)
-                        print("成功获取尊老用户数据")
+                        logger.info("成功获取尊老用户数据")
 
                         # 生成日期字段
                         p_day_id = yesterday.strftime('%Y%m%d')  # 格式：20250621
@@ -179,45 +183,45 @@ def main():
 
                             # 转换为单行DataFrame
                             final_result = pd.DataFrame([merged_data])
-                            print("数据合并完成（单行格式）")
+                            logger.info("数据合并完成（单行格式）")
 
                             # 处理数据类型转换和清理
                             processed_result = process_single_date_data(final_result)
 
                             if processed_result is not None:
-                                print("\n=== 数据处理后结果 ===")
-                                print(processed_result)
+                                logger.info("\n=== 数据处理后结果 ===")
+                                logger.info(str(processed_result))
 
                                 # 导入数据库
                                 try:
                                     xp.insert_data(processed_result, 'central_indicator_monitor_data')
-                                    print("\n=== 数据库插入成功 ===")
+                                    logger.info("\n=== 数据库插入成功 ===")
                                     return processed_result
                                 except Exception as e:
-                                    print(f"\n=== 数据库插入失败 ===")
-                                    print(f"错误信息: {e}")
+                                    logger.error(f"\n=== 数据库插入失败 ===")
+                                    logger.error(f"错误信息: {e}")
                                     return None
                             else:
-                                print("数据处理失败")
+                                logger.error("数据处理失败")
                                 return None
                         else:
-                            print("警告：部分数据获取失败")
+                            logger.warning("警告：部分数据获取失败")
                             return None
 
                     except Exception as e:
-                        print(f"数据获取过程中发生错误: {e}")
+                        logger.error(f"数据获取过程中发生错误: {e}")
                         return None
                 else:
-                    print("未找到搜索按钮")
+                    logger.error("未找到搜索按钮")
                     return None
             else:
-                print("日期选择失败！终止执行")
+                logger.error("日期选择失败！终止执行")
                 return None
         else:
-            print("地区选择失败！终止执行")
+            logger.error("地区选择失败！终止执行")
             return None
     else:
-        print("未找到话务运营重点指标，终止执行")
+        logger.error("未找到话务运营重点指标，终止执行")
         return None
 
 
@@ -226,9 +230,9 @@ if __name__ == "__main__":
     result = main()
 
     if result is not None:
-        print("\n=== 执行成功 ===")
-        print(f"成功处理了 1 条记录")
-        print(result)
+        logger.info("\n=== 执行成功 ===")
+        logger.info(f"成功处理了 1 条记录")
+        logger.info(str(result))
     else:
-        print("\n=== 执行失败 ===")
-        print("未能成功获取数据")
+        logger.error("\n=== 执行失败 ===")
+        logger.error("未能成功获取数据")

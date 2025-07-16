@@ -1,10 +1,14 @@
 import datetime
+import logging
 import time
 
 import pandas as pd
 from DrissionPage import Chromium
 
 from db.pgDatabase import OperatePgsql
+
+# 配置日志记录器
+logger = logging.getLogger(__name__)
 
 xp = OperatePgsql()
 
@@ -59,7 +63,7 @@ def process_single_date_data(result_df):
             columns_to_drop.append(col)
 
     if columns_to_drop:
-        print(f"删除None值列: {columns_to_drop}")
+        logger.info(f"删除None值列: {columns_to_drop}")
         result_df = result_df.drop(columns=columns_to_drop)
 
     return result_df
@@ -70,7 +74,7 @@ def insert_indicator_data(p_day_id, field_name, field_value):
     插入单个指标数据到数据库
     """
     if field_value is None:
-        print(f"指标 {field_name} 值为None，跳过入库")
+        logger.warning(f"指标 {field_name} 值为None，跳过入库")
         return False
 
     # 构造单行数据
@@ -88,13 +92,13 @@ def insert_indicator_data(p_day_id, field_name, field_value):
     if processed_df is not None and not processed_df.empty:
         try:
             xp.insert_data(processed_df, 'central_indicator_monitor_data')
-            print(f"指标 {field_name} 入库成功，值: {field_value}")
+            logger.info(f"指标 {field_name} 入库成功，值: {field_value}")
             return True
         except Exception as e:
-            print(f"指标 {field_name} 入库失败: {e}")
+            logger.error(f"指标 {field_name} 入库失败: {e}")
             return False
     else:
-        print(f"指标 {field_name} 数据处理后为空，跳过入库")
+        logger.warning(f"指标 {field_name} 数据处理后为空，跳过入库")
         return False
 
 
@@ -106,7 +110,7 @@ def main():
     yesterday = today - datetime.timedelta(days=1)
 
     now_today = yesterday.strftime('%Y 年 %m 月 %d 日')
-    print(f"查询日期: {now_today}")
+    logger.info(f"查询日期: {now_today}")
 
     # 生成日期字段
     p_day_id = yesterday.strftime('%Y%m%d')
@@ -114,19 +118,19 @@ def main():
     # 连接浏览器
     browser = Chromium()
 
-    print('开始获取文字客服服务量与接通率')
+    logger.info('开始获取文字客服服务量与接通率')
 
     # 获取条件标签页
     try:
         tab = browser.get_tab(title='IM会话服务量接通率多维分析')
         if tab is None:
-            print("未找到 IM会话服务量接通率多维分析 标签页，跳过该部分")
+            logger.warning("未找到 IM会话服务量接通率多维分析 标签页，跳过该部分")
         else:
-            print('刷新浏览器tab页')
+            logger.info('刷新浏览器tab页')
             tab.refresh()
             time.sleep(30)
     except Exception as e:
-        print(f"获取 IM会话服务量接通率多维分析 标签页失败: {e}，跳过该部分")
+        logger.error(f"获取 IM会话服务量接通率多维分析 标签页失败: {e}，跳过该部分")
         tab = None
 
     if tab is not None:
@@ -135,39 +139,38 @@ def main():
             element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[2]')
             if element:
                 wordCallinCt = element.text.strip()
-                print(f"获取到 文字客服呼入量 值: {wordCallinCt}")
+                logger.info(f"获取到 文字客服呼入量 值: {wordCallinCt}")
                 # 立即入库
                 insert_indicator_data(p_day_id, 'wordCallinCt', wordCallinCt)
             else:
-                print("未找到 文字客服呼入量 元素")
+                logger.warning("未找到 文字客服呼入量 元素")
 
             # 文字客服5分钟接通率(word5Rate)
             element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[11]')
             if element:
                 word5Rate = element.text.strip()
-                print(f"获取到 文字客服5分钟接通率 值: {word5Rate}")
+                logger.info(f"获取到 文字客服5分钟接通率 值: {word5Rate}")
                 # 立即入库
                 insert_indicator_data(p_day_id, 'word5Rate', word5Rate)
             else:
-                print("未找到 文字客服5分钟接通率 元素")
+                logger.warning("未找到 文字客服5分钟接通率 元素")
 
         except Exception as e:
-            print(f"文字客服数据获取出错: {e}")
+            logger.error(f"文字客服数据获取出错: {e}")
 
-
-    print('开始获取远程柜台服务量与接通率')
+    logger.info('开始获取远程柜台服务量与接通率')
 
     # 获取条件标签页
     try:
         tab = browser.get_tab(title='远程柜台服务量接通率多维分析')
         if tab is None:
-            print("未找到 远程柜台服务量接通率多维分析 标签页，跳过该部分")
+            logger.warning("未找到 远程柜台服务量接通率多维分析 标签页，跳过该部分")
         else:
-            print('刷新浏览器tab页')
+            logger.info('刷新浏览器tab页')
             tab.refresh()
             time.sleep(30)
     except Exception as e:
-        print(f"获取 远程柜台服务量接通率多维分析 标签页失败: {e}，跳过该部分")
+        logger.error(f"获取 远程柜台服务量接通率多维分析 标签页失败: {e}，跳过该部分")
         tab = None
 
     if tab is not None:
@@ -176,46 +179,46 @@ def main():
             element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[2]')
             if element:
                 farCabinetCt = element.text.strip()
-                print(f"获取到 远程柜台呼入量 值: {farCabinetCt}")
+                logger.info(f"获取到 远程柜台呼入量 值: {farCabinetCt}")
                 # 立即入库
                 insert_indicator_data(p_day_id, 'farCabinetCt', farCabinetCt)
             else:
-                print("未找到 远程柜台呼入量 元素")
+                logger.warning("未找到 远程柜台呼入量 元素")
 
             # 远程柜台25秒接通率(farCabinetRate)
             element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[6]')
             if element:
                 farCabinetRate = element.text.strip()
-                print(f"获取到 远程柜台25秒接通率 值: {farCabinetRate}")
+                logger.info(f"获取到 远程柜台25秒接通率 值: {farCabinetRate}")
                 # 立即入库
                 insert_indicator_data(p_day_id, 'farCabinetRate', farCabinetRate)
             else:
-                print("未找到 远程柜台25秒接通率 元素")
+                logger.warning("未找到 远程柜台25秒接通率 元素")
 
         except Exception as e:
-            print(f"远程柜台数据获取出错: {e}")
+            logger.error(f"远程柜台数据获取出错: {e}")
 
-    print('获取10000号重复来电率')
+    logger.info('获取10000号重复来电率')
 
     # 获取条件标签页
     try:
         tab = browser.get_tab(title='高频呼入统计报表')
         if tab is None:
-            print("未找到 高频呼入统计报表 标签页，跳过该部分")
+            logger.warning("未找到 高频呼入统计报表 标签页，跳过该部分")
         else:
-            print('刷新浏览器tab页')
+            logger.info('刷新浏览器tab页')
             tab.refresh()
             time.sleep(30)
     except Exception as e:
-        print(f"获取 高频呼入统计报表 标签页失败: {e}，跳过该部分")
+        logger.error(f"获取 高频呼入统计报表 标签页失败: {e}，跳过该部分")
         tab = None
 
     if tab is not None:
         try:
-            print('选择10000号接入号')
+            logger.info('选择10000号接入号')
             tab.ele('xpath://span[@id="undefined_4_switch"]').click()
             time.sleep(5)
-            print('开始拖拽')
+            logger.info('开始拖拽')
             tab.actions.hold('xpath://span[@id="undefined_20_span"]/span[1]').release(
                 'xpath://div[contains(@class,"left ui-droppable")]')
             tab.actions.release()
@@ -224,14 +227,15 @@ def main():
             element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[7]')
             if element:
                 repeatRate = element.text.strip()
-                print(f"获取到 10000号重复来电率 值: {repeatRate}")
+                logger.info(f"获取到 10000号重复来电率 值: {repeatRate}")
                 # 立即入库
                 insert_indicator_data(p_day_id, 'repeatRate', repeatRate)
             else:
-                print("未找到 10000号重复来电率 元素")
+                logger.warning("未找到 10000号重复来电率 元素")
 
         except Exception as e:
-            print(f"10000号重复来电率数据获取出错: {e}")
+            logger.error(f"10000号重复来电率数据获取出错: {e}")
+
 
 if __name__ == "__main__":
     # 执行主函数
