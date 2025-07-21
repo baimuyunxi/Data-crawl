@@ -5,7 +5,7 @@ import time
 import pandas as pd
 from DrissionPage import Chromium
 
-from db.pgDatabase import OperatePgsql
+from src.db.pgDatabase import OperatePgsql
 
 # 配置日志记录器
 logger = logging.getLogger(__name__)

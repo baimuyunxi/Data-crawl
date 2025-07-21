@@ -9,8 +9,8 @@ import time
 import schedule
 from DrissionPage import Chromium
 
-from src.importtation import main as import_main  # 新增导入
-from src.transporttation import main as transport_main
+from src.region.importtation import main as import_main  # 新增导入
+from src.region.transporttation import main as transport_main
 
 # 配置日志
 logging.basicConfig(

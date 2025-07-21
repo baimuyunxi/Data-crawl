@@ -5,8 +5,8 @@ import time
 import pandas as pd
 from DrissionPage import Chromium
 
-from db.pgDatabase import OperatePgsql
-from util.hw_util import query_data, query_zun_old, select_hunan_province, select_time_province
+from src.db.pgDatabase import OperatePgsql
+from src.util.hw_util import query_data, query_zun_old, select_hunan_province, select_time_province
 
 # 配置日志记录器
 logger = logging.getLogger(__name__)
