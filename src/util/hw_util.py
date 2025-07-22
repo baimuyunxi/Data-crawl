@@ -376,6 +376,21 @@ def query_data(tab):
             logger.warning("未找到 语音人工呼入量 元素")
             row_data['artCallinCt'] = None
 
+        # 语音自助话务占比
+        element = tab.ele(
+            'xpath://span[contains(@class, "el-tooltip item colbeyond-connCt-0 TxtOver f_td_over_w")]')
+        if element:
+            row_data['seifservicerate'] = element.text.strip()
+            logger.info(f"获取到 10000/10001话务总量 值: {row_data['seifservicerate']}")
+            logger.info("开始计算 语音自助话务占比")
+            result = (float(row_data['seifservicerate']) - float(row_data['artCallinCt'])) / float(
+                row_data['seifservicerate']) * 100
+            row_data['seifservicerate'] = f"{result:.2f}"
+            logger.info(f"计算到 语音自助话务占比 值: {row_data['seifservicerate']}")
+        else:
+            logger.warning("未找到 10000/10001话务总量 元素")
+            row_data['seifservicerate'] = None
+
         # 语音客服15s接通率（conn15Rate)
         element = tab.ele(
             'xpath://span[contains(@class, "el-tooltip item colbeyond-conn15Rate-0 TxtOver f_td_over_w")]')
