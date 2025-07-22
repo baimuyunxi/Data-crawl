@@ -2,7 +2,12 @@
 
 
 a = Analysis(
-    ['main.py','src/region/transporttation.py','src/region/importtation.py','src/util/hw_util.py','src/db/pgDatabase.py'],
+    ['main.py',
+    'src/region/transporttation.py',
+    'src/region/importtation.py',
+    'src/intelligent/navigation.py',
+    'src/util/hw_util.py',
+    'src/db/pgDatabase.py'],
     pathex=[],
     binaries=[],
     datas=[],
