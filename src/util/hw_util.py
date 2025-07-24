@@ -411,6 +411,16 @@ def query_data(tab):
             logger.warning("未找到 10000号人工一解率 元素")
             row_data['onceRate'] = None
 
+        # 10000号整体呼入量（artconn)
+        element = tab.ele(
+            'xpath://span[contains(@class, "el-tooltip item colbeyond-connCt-0 TxtOver f_td_over_w")]')
+        if element:
+            row_data['artconn'] = element.text.strip()
+            logger.info(f"获取到 10000号整体呼入量 值: {row_data['artconn']}")
+        else:
+            logger.warning("未找到 10000号整体呼入量 元素")
+            row_data['artconn'] = None
+
         # 直接创建DataFrame
         data = pd.DataFrame([row_data])
 
