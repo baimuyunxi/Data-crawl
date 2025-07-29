@@ -421,6 +421,16 @@ def query_data(tab):
             logger.warning("未找到 10000号整体呼入量 元素")
             row_data['artconn'] = None
 
+        # 平台呼入10000自助量（wanselfcnt)
+        element = tab.ele(
+            'xpath://span[contains(@class, "el-tooltip item colbeyond-auto10000CallinCt-0 TxtOver f_td_over_w")]')
+        if element:
+            row_data['wanselfcnt'] = element.text.strip()
+            logger.info(f"获取到 平台呼入10000自助量 值: {row_data['wanselfcnt']}")
+        else:
+            logger.warning("未找到 平台呼入10000自助量 元素")
+            row_data['wanselfcnt'] = None
+
         # 直接创建DataFrame
         data = pd.DataFrame([row_data])
 

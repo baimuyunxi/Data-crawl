@@ -153,7 +153,7 @@ def main():
                 # 立即入库
                 insert_indicator_data(p_day_id, 'intelligentCus', intelligent_cus)
             else:
-                logger.warning("未找到 智能客服占比 元素")
+                logger.error("未找到 智能客服占比 元素")
 
             element = tab.ele('xpath://*[@id="app"]/div[3]/div/div[3]/table/tbody/tr/td[8]/div')
             if element:
@@ -162,10 +162,97 @@ def main():
                 # 立即入库
                 insert_indicator_data(p_day_id, 'intelligentRgRate', intelligent_rg_rate)
             else:
-                logger.warning("未找到 智能客服转人工率 元素")
+                logger.error("未找到 智能客服转人工率 元素")
 
         except Exception as e:
             logger.error(f"获取 运营管理系统 数据失败: {e}")
+
+    logger.info('开始获取 数字人生产管理平台')
+
+    # 获取条件标签页
+    try:
+        tab = browser.get_tab(title='数字人生产管理平台')
+        if tab is None:
+            logger.warning("未找到 数字人生产管理平台 标签页，跳过该部分")
+        else:
+            logger.info('刷新浏览器tab页')
+            # tab.refresh()
+            time.sleep(5)
+    except Exception as e:
+        logger.error(f"获取 数字人生产管理平台 标签页失败: {e}，跳过该部分")
+        tab = None
+
+    if tab is not None:
+        try:
+            tab.ele('xpath://*[@id="app"]/div/div/section/div[1]/div[1]/div/div[2]/div/div[2]/div[2]/a').click()
+            time.sleep(2)
+            tab.ele('xpath://*[@id="app"]/div/div/section/div[1]/div[1]/div[2]/form/div[1]/div/div/div').click()
+            time.sleep(2)
+            tab.ele('xpath:/html/body/div[2]/div[1]/div[1]/ul/li[25]/span').click()
+            time.sleep(2)
+
+            logger.info("开始日期选择！")
+            tab.ele('xpath://*[@id="app"]/div/div/section/div[1]/div[1]/div[2]/form/div[11]/div/div/input[1]').click()
+            time.sleep(2)
+            # 新增的日期选择逻辑
+            try:
+                # 获取p_day_id的后两位数字（日期）
+                target_day = p_day_id[-2:]
+                logger.info(f"目标日期: {target_day}")
+
+                # 定位到日期表格的tbody
+                tbody = tab.ele('xpath:/html/body/div[3]/div[1]/div/div[1]/table/tbody')
+
+                # 查找所有td元素
+                tds = tbody.eles('tag:td')
+
+                target_td = None
+                for td in tds:
+                    # 检查td的class是否包含available
+                    if 'available' in td.attr('class'):
+                        # 获取td内的span元素文本
+                        span = td.ele('tag:span', timeout=1)
+                        if span and span.text.strip() == target_day:
+                            target_td = td
+                            logger.info(f"找到目标日期元素: {target_day}")
+                            break
+
+                if target_td:
+                    # 双击目标td
+                    target_td.click(by_js=True)  # 使用JS点击确保成功
+                    time.sleep(1)
+                    target_td.click(by_js=True)  # 第二次点击形成双击效果
+                    logger.info(f"成功双击日期: {target_day}")
+                    time.sleep(2)
+                else:
+                    logger.warning(f"未找到可用的日期: {target_day}")
+
+            except Exception as date_e:
+                logger.error(f"日期选择失败: {date_e}")
+
+            logger.info("选择天统计维度！")
+            tab.ele(
+                'xpath://*[@id="app"]/div/div/section/div[1]/div[1]/div[2]/form/div[14]/div/label[2]/span[2]').click()
+            time.sleep(2)
+
+            tab.ele('xpath://*[@id="app"]/div/div/section/div[1]/div[1]/div[2]/form/div[26]/button[1]').click()
+            time.sleep(2)
+
+            logger.info("获取元素")
+            element = tab.ele(
+                'xpath://*[@id="app"]/div/div/section/div[1]/div[1]/div[4]/div/div[3]/table/tbody/tr/td[3]/div')
+            if element:
+                digitalhumancnt_cus = element.text.strip()
+                logger.info(f"获取到 数字人服务量 值: {digitalhumancnt_cus}")
+                # 立即入库
+                insert_indicator_data(p_day_id, 'digitalhumancnt', digitalhumancnt_cus)
+            else:
+                logger.error("未找到 数字人服务量 元素")
+
+            print("点击返回！")
+            tab.ele('xpath://*[@id="app"]/div/div/section/div[1]/div[1]/div[1]/div/button').click()
+        except Exception as e:
+            logger.error(f"获取 数字人生产管理平台 数据失败: {e}")
 
 
 if __name__ == "__main__":
