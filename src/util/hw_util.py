@@ -427,9 +427,11 @@ def query_data(tab):
         if element:
             row_data['wanselfcnt'] = element.text.strip()
             logger.info(f"获取到 平台呼入10000自助量 值: {row_data['wanselfcnt']}")
+            row_data['wanvolumecnt'] = int(row_data['wanselfcnt']) + int(row_data['artCallinCt'])
         else:
             logger.warning("未找到 平台呼入10000自助量 元素")
             row_data['wanselfcnt'] = None
+            row_data['wanvolumecnt'] = None
 
         # 直接创建DataFrame
         data = pd.DataFrame([row_data])
