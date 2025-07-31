@@ -6,7 +6,7 @@ import pandas as pd
 from DrissionPage import Chromium
 
 from src.db.pgDatabase import OperatePgsql
-from src.util.hw_util import query_data, query_zun_old, select_hunan_province, select_time_province
+from src.util.hw_util import query_data, query_zun_old, select_hunan_province, select_time_province, query_cf_data
 
 # 配置日志记录器
 logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ def process_single_date_data(result_df):
         result_df['artCallinCt'] = result_df['artCallinCt'].apply(safe_convert_to_int)
 
     # 处理百分比字段 - 转换为数值类型，保持None值
-    percentage_columns = ['conn15Rate', 'onceRate', 'artConnRt']
+    percentage_columns = ['conn15Rate', 'onceRate', 'artConnRt', 'repeatRate']
 
     for col in percentage_columns:
         if col in result_df.columns:
@@ -151,11 +151,14 @@ def main():
                         data_zl = query_zun_old(tab)
                         logger.info("成功获取尊老用户数据")
 
+                        data_cf = query_cf_data(browser)
+                        logger.info("成功获取重复来电用户数据")
+
                         # 生成日期字段
                         p_day_id = yesterday.strftime('%Y%m%d')  # 格式：20250621
 
                         # 合并数据为一行
-                        if data is not None and data_zl is not None:
+                        if data is not None and data_zl is not None and data_cf is not None:
                             # 初始化结果字典
                             merged_data = {
                                 'p_day_id': p_day_id,
@@ -181,9 +184,19 @@ def main():
                             elif isinstance(data_zl, dict):
                                 merged_data.update(data_zl)
 
+                            # 处理重复来电用户数据
+                            if isinstance(data_cf, pd.DataFrame):
+                                # 将DataFrame转换为字典，合并所有非空值
+                                for col in data_cf.columns:
+                                    non_null_values = data_cf[col].dropna()
+                                    if not non_null_values.empty:
+                                        merged_data[col] = non_null_values.iloc[0]
+                            elif isinstance(data_cf, dict):
+                                merged_data.update(data_cf)
+
                             # 转换为单行DataFrame
                             final_result = pd.DataFrame([merged_data])
-                            logger.info("数据合并完成（单行格式）")
+                            logger.info("数据合并完成（单行格式，包含重复来电数据）")
 
                             # 处理数据类型转换和清理
                             processed_result = process_single_date_data(final_result)
@@ -205,7 +218,7 @@ def main():
                                 logger.error("数据处理失败")
                                 return None
                         else:
-                            logger.warning("警告：部分数据获取失败")
+                            logger.warning("警告：部分数据获取失败（基础数据、尊老用户数据或重复来电数据）")
                             return None
 
                     except Exception as e:

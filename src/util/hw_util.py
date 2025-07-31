@@ -477,3 +477,49 @@ def query_zun_old(tab):
     except Exception as e:
         logger.error(f"尊老数据获取异常: {e}")
         return pd.DataFrame()
+
+
+def query_cf_data(browser):
+    row_data = {}  # 用字典收集一行的数据
+
+    # 获取条件标签页
+    try:
+        tab = browser.get_tab(title='高频呼入统计报表')
+        if tab is None:
+            logger.warning("未找到 高频呼入统计报表 标签页，跳过该部分")
+        else:
+            logger.info('刷新浏览器tab页')
+            tab.refresh()
+            time.sleep(30)
+    except Exception as e:
+        logger.error(f"获取 高频呼入统计报表 标签页失败: {e}，跳过该部分")
+        tab = None
+
+    if tab is not None:
+        try:
+            logger.info('选择10000号接入号')
+            tab.ele('xpath://span[@id="undefined_4_switch"]').click()
+            time.sleep(5)
+            logger.info('开始拖拽')
+            tab.actions.hold('xpath://span[@id="undefined_20_span"]/span[1]').release(
+                'xpath://div[contains(@class,"left ui-droppable")]')
+            tab.actions.release()
+            time.sleep(20)
+            # 10000号重复来电率(repeatRate)
+            element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[7]')
+            if element:
+                repeatRate = element.text.strip()
+                row_data['repeatRate'] = element.text.strip()
+                logger.info(f"获取到 10000号重复来电率 值: {repeatRate}")
+            else:
+                row_data['repeatRate'] = element.text.strip()
+                logger.warning("未找到 10000号重复来电率 元素")
+
+            # 直接创建DataFrame
+            data = pd.DataFrame([row_data])
+
+            return data
+
+        except Exception as e:
+            logger.error(f"10000号重复来电率数据获取出错: {e}")
+            return pd.DataFrame()

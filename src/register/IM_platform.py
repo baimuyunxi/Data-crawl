@@ -14,6 +14,7 @@ co = (ChromiumOptions(read_file=False).set_browser_path(r'./Chrome/App/chrome.ex
 browser = Chromium(addr_or_opts=co, session_options=False).latest_tab
 
 browser.get("http://10.135.4.28/IMAdmin/system/login!loginOut.action")
+time.sleep(5)
 
 # 输入账号
 user_name = browser.ele('xpath://*[@id="loginName"]', timeout=5)
