@@ -102,7 +102,7 @@ def insert_indicator_data(p_day_id, field_name, field_value):
         return False
 
 
-def main():
+def jt_4a_main():
     # 获取当前日期
     today = datetime.date.today()
 
@@ -166,6 +166,9 @@ def main():
 
         except Exception as e:
             logger.error(f"获取 运营管理系统 数据失败: {e}")
+
+        finally:
+            tab.close()
 
     logger.info('开始获取 数字人生产管理平台')
 
@@ -254,7 +257,10 @@ def main():
         except Exception as e:
             logger.error(f"获取 数字人生产管理平台 数据失败: {e}")
 
+        finally:
+            tab.close()
+
 
 if __name__ == "__main__":
     # 执行主函数
-    result = main()
+    result = jt_4a_main()
