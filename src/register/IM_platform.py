@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import datetime
 
@@ -7,7 +8,9 @@ from src.AuthCode.mesmain import Email189VerificationTool
 from src.region.importtation import IM_porttation_main
 from src.util.verificationCode.ImageCode import recognize_captcha_simple
 
-print("开始登录 IM客户运营支撑平台 ！")
+logger = logging.getLogger(__name__)
+
+logger.info("开始登录 IM客户运营支撑平台 ！")
 
 co = (ChromiumOptions(read_file=False).set_browser_path(r'./Chrome/App/chrome.exe'))
 
@@ -43,7 +46,7 @@ mail_time = datetime.now()
 email_tool = Email189VerificationTool()
 result = email_tool.get_verification_code("IM运营平台", mail_time)
 email_code = browser.ele('xpath://*[@id="loginName"]')
-print(f"获取到 短信验证码 为: {result}")
+logger.info(f"获取到 短信验证码 为: {result}")
 email_code.input(result)
 time.sleep(1)
 browser.ele('xpath://*[@id="login_in"]').click()

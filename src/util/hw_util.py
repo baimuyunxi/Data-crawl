@@ -492,7 +492,7 @@ def query_data(tab):
         if element:
             artCallinCt = element.text.strip()
             logger.info(f"获取到 语音人工呼入量 值: {artCallinCt}")
-            insert_indicator_data(p_day_id, 'intelligentCus', artCallinCt)
+            insert_indicator_data(p_day_id, 'artCallinCt', artCallinCt)
         else:
             logger.warning("未找到 语音人工呼入量 元素")
 
