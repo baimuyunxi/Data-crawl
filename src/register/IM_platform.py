@@ -141,3 +141,5 @@ try:
     logger.info("浏览器关闭成功")
 except Exception as e:
     logger.error(f"浏览器关闭失败: {e}")
+
+time.sleep(20)
