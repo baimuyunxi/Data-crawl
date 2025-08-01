@@ -91,8 +91,8 @@ def main():
     # 获取昨天日期
     yesterday = today - datetime.timedelta(days=1)
 
-    start_date = datetime.datetime.strptime("20250704", "%Y%m%d")
-    end_date = datetime.datetime.strptime("20250708", "%Y%m%d")
+    start_date = datetime.datetime.strptime("20250711", "%Y%m%d")
+    end_date = datetime.datetime.strptime("20250713", "%Y%m%d")
 
     print(f"开始处理日期范围: {start_date.strftime('%Y%m%d')} 到 {end_date.strftime('%Y%m%d')}")
 

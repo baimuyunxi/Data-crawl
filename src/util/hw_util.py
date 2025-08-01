@@ -1,10 +1,122 @@
+import datetime
 import logging
 import time
 
 import pandas as pd
 
+from src.db.pgDatabase import OperatePgsql
+
 # 配置日志记录器
 logger = logging.getLogger(__name__)
+
+xp = OperatePgsql()
+
+
+def convert_percentage_to_numeric(value):
+    """
+    将百分比字符串转换为数值
+    例如: "86.25%" -> 86.25
+    如果值为None或无效，返回None
+    """
+    if pd.isna(value) or value is None:
+        return None
+
+    if isinstance(value, str):
+        # 移除百分号并转换为浮点数
+        if value.endswith('%'):
+            try:
+                return float(value.rstrip('%'))
+            except ValueError:
+                return None
+        else:
+            try:
+                return float(value)
+            except ValueError:
+                return None
+
+    return float(value) if not pd.isna(value) else None
+
+
+def safe_convert_to_int(value):
+    """
+    安全地将值转换为整数
+    如果值为None或无效，返回None
+    """
+    if pd.isna(value) or value is None:
+        return None
+
+    try:
+        return int(float(value))
+    except (ValueError, TypeError):
+        return None
+
+
+def process_single_date_data(result_df):
+    """
+    处理单个日期的数据，进行类型转换和清理
+    """
+    if result_df is None or result_df.empty:
+        return None
+
+    # 处理 p_day_id
+    if 'p_day_id' in result_df.columns:
+        result_df['p_day_id'] = result_df['p_day_id'].astype(str)
+
+    # 处理 artCallinCt - 转换为整数类型，保持None值
+    if 'artCallinCt' in result_df.columns:
+        result_df['artCallinCt'] = result_df['artCallinCt'].apply(safe_convert_to_int)
+
+    # 处理百分比字段 - 转换为数值类型，保持None值
+    percentage_columns = ['conn15Rate', 'onceRate', 'artConnRt', 'repeatRate']
+
+    for col in percentage_columns:
+        if col in result_df.columns:
+            result_df[col] = result_df[col].apply(convert_percentage_to_numeric)
+
+    # 入库前删除值为None的列
+    columns_to_drop = []
+    for col in result_df.columns:
+        if result_df[col].iloc[0] is None:
+            columns_to_drop.append(col)
+
+    if columns_to_drop:
+        logger.info(f"删除None值列: {columns_to_drop}")
+        result_df = result_df.drop(columns=columns_to_drop)
+
+    return result_df
+
+
+def insert_indicator_data(p_day_id, field_name, field_value):
+    """
+    插入单个指标数据到数据库
+    """
+    if field_value is None:
+        logger.warning(f"指标 {field_name} 值为None，跳过入库")
+        return False
+
+    # 构造单行数据
+    data_dict = {
+        'p_day_id': p_day_id,
+        field_name: field_value
+    }
+
+    # 转换为DataFrame
+    df = pd.DataFrame([data_dict])
+
+    # 处理数据类型转换和清理
+    processed_df = process_single_date_data(df)
+
+    if processed_df is not None and not processed_df.empty:
+        try:
+            xp.insert_data(processed_df, 'central_indicator_monitor_data')
+            logger.info(f"指标 {field_name} 入库成功，值: {field_value}")
+            return True
+        except Exception as e:
+            logger.error(f"指标 {field_name} 入库失败: {e}")
+            return False
+    else:
+        logger.warning(f"指标 {field_name} 数据处理后为空，跳过入库")
+        return False
 
 
 # 处理地区选择
@@ -359,92 +471,114 @@ def select_time_province(tab, data_time):
         return False
 
 
-# 获取 语音人工呼入量（artCallinCt)
-# 语音客服15s接通率（conn15Rate）
-# 10000号人工一解率（onceRate)
+# 获取数据并立即入库
 def query_data(tab):
-    row_data = {}  # 用字典收集一行的数据
+    # 获取当前日期
+    today = datetime.date.today()
+
+    # 获取昨天日期
+    yesterday = today - datetime.timedelta(days=1)
+
+    now_today = yesterday.strftime('%Y 年 %m 月 %d 日')
+    logger.info(f"查询日期: {now_today}")
+
+    # 生成日期字段
+    p_day_id = yesterday.strftime('%Y%m%d')
 
     try:
         # 语音人工呼入量（artCallinCt)
         element = tab.ele(
             'xpath://span[contains(@class, "el-tooltip item colbeyond-artCallinCt-0 TxtOver f_td_over_w")]')
         if element:
-            row_data['artCallinCt'] = element.text.strip()
-            logger.info(f"获取到 语音人工呼入量 值: {row_data['artCallinCt']}")
+            artCallinCt = element.text.strip()
+            logger.info(f"获取到 语音人工呼入量 值: {artCallinCt}")
+            insert_indicator_data(p_day_id, 'intelligentCus', artCallinCt)
         else:
             logger.warning("未找到 语音人工呼入量 元素")
-            row_data['artCallinCt'] = None
 
-        # 语音自助话务占比
+        # 10000/10001话务总量（用于计算语音自助话务占比）
         element = tab.ele(
             'xpath://span[contains(@class, "el-tooltip item colbeyond-connCt-0 TxtOver f_td_over_w")]')
         if element:
-            row_data['seifservicerate'] = element.text.strip()
-            logger.info(f"获取到 10000/10001话务总量 值: {row_data['seifservicerate']}")
-            logger.info("开始计算 语音自助话务占比")
-            result = (float(row_data['seifservicerate']) - float(row_data['artCallinCt'])) / float(
-                row_data['seifservicerate']) * 100
-            row_data['seifservicerate'] = f"{result:.2f}"
-            logger.info(f"计算到 语音自助话务占比 值: {row_data['seifservicerate']}")
+            connCt = element.text.strip()
+            logger.info(f"获取到 10000/10001话务总量 值: {connCt}")
+
+            # 计算语音自助话务占比
+            if artCallinCt:
+                try:
+                    seifservicerate = (float(connCt) - float(artCallinCt)) / float(connCt) * 100
+                    seifservicerate_formatted = f"{seifservicerate:.2f}"
+                    logger.info(f"计算到 语音自助话务占比 值: {seifservicerate_formatted}")
+                    insert_indicator_data(p_day_id, 'seifservicerate', seifservicerate_formatted)
+                except (ValueError, ZeroDivisionError) as e:
+                    logger.error(f"计算语音自助话务占比时出错: {e}")
+            else:
+                logger.warning("由于语音人工呼入量未获取，无法计算语音自助话务占比")
         else:
             logger.warning("未找到 10000/10001话务总量 元素")
-            row_data['seifservicerate'] = None
 
         # 语音客服15s接通率（conn15Rate)
         element = tab.ele(
             'xpath://span[contains(@class, "el-tooltip item colbeyond-conn15Rate-0 TxtOver f_td_over_w")]')
         if element:
-            row_data['conn15Rate'] = element.text.strip()
-            logger.info(f"获取到 语音客服15s接通率 值: {row_data['conn15Rate']}")
+            conn15Rate = element.text.strip()
+            logger.info(f"获取到 语音客服15s接通率 值: {conn15Rate}")
+            insert_indicator_data(p_day_id, 'conn15Rate', conn15Rate)
         else:
             logger.warning("未找到 语音客服15s接通率 元素")
-            row_data['conn15Rate'] = None
 
         # 10000号人工一解率（onceRate)
         element = tab.ele(
             'xpath://span[contains(@class, "el-tooltip item colbeyond-onceRate-0 TxtOver f_td_over_w")]')
         if element:
-            row_data['onceRate'] = element.text.strip()
-            logger.info(f"获取到 10000号人工一解率 值: {row_data['onceRate']}")
+            onceRate = element.text.strip()
+            logger.info(f"获取到 10000号人工一解率 值: {onceRate}")
+            insert_indicator_data(p_day_id, 'onceRate', onceRate)
         else:
             logger.warning("未找到 10000号人工一解率 元素")
-            row_data['onceRate'] = None
 
         # 10000号整体呼入量（artconn)
         element = tab.ele(
             'xpath://span[contains(@class, "el-tooltip item colbeyond-connCt-0 TxtOver f_td_over_w")]')
         if element:
-            row_data['artconn'] = element.text.strip()
-            logger.info(f"获取到 10000号整体呼入量 值: {row_data['artconn']}")
+            artconn = element.text.strip()
+            logger.info(f"获取到 10000号整体呼入量 值: {artconn}")
+            insert_indicator_data(p_day_id, 'artconn', artconn)
         else:
             logger.warning("未找到 10000号整体呼入量 元素")
-            row_data['artconn'] = None
 
         # 平台呼入10000自助量（wanselfcnt)
         element = tab.ele(
             'xpath://span[contains(@class, "el-tooltip item colbeyond-auto10000CallinCt-0 TxtOver f_td_over_w")]')
         if element:
-            row_data['wanselfcnt'] = element.text.strip()
-            logger.info(f"获取到 平台呼入10000自助量 值: {row_data['wanselfcnt']}")
-            row_data['wanvolumecnt'] = int(row_data['wanselfcnt']) + int(row_data['artCallinCt'])
+            wanselfcnt = element.text.strip()
+            logger.info(f"获取到 平台呼入10000自助量 值: {wanselfcnt}")
+            insert_indicator_data(p_day_id, 'wanselfcnt', wanselfcnt)
+
+            # 计算万号总量（wanvolumecnt）
+            if artCallinCt:
+                try:
+                    wanvolumecnt = int(wanselfcnt) + int(artCallinCt)
+                    logger.info(f"计算到 万号总量 值: {wanvolumecnt}")
+                    insert_indicator_data(p_day_id, 'wanvolumecnt', str(wanvolumecnt))
+                except (ValueError, TypeError) as e:
+                    logger.error(f"计算万号总量时出错: {e}")
+            else:
+                logger.warning("由于语音人工呼入量未获取，无法计算万号总量")
         else:
             logger.warning("未找到 平台呼入10000自助量 元素")
-            row_data['wanselfcnt'] = None
-            row_data['wanvolumecnt'] = None
 
-        # 直接创建DataFrame
-        data = pd.DataFrame([row_data])
-
-        return data
+        logger.info("所有数据获取和入库操作完成")
 
     except Exception as e:
         logger.error(f"获取数据时出错: {e}")
-        return pd.DataFrame()
 
 
 def query_zun_old(tab):
-    row_data = {}  # 用字典收集一行的数据
+    # 获取昨天日期
+    today = datetime.date.today()
+    yesterday = today - datetime.timedelta(days=1)
+    p_day_id = yesterday.strftime('%Y%m%d')
 
     try:
         dl_input = tab.ele('xpath://form[1]/div[1]/div[5]/div[1]/div[1]/div[1]/div[1]/div[1]/input[1]')
@@ -457,40 +591,37 @@ def query_zun_old(tab):
             time.sleep(3)
             tab.ele('xpath://button[@id="searchColClass-search"]', timeout=3).click()
             time.sleep(5)
+
+            # 10000号适老化接通率（artConnRt）
             element = tab.ele(
                 'xpath://span[contains(@class, "el-tooltip item colbeyond-artConnRt-0 TxtOver f_td_over_w")]')
             if element:
-                row_data['artConnRt'] = element.text.strip()
-                logger.info(f"获取到 10000号适老化接通率 值: {row_data['artConnRt']}")
+                artConnRt = element.text.strip()
+                logger.info(f"获取到 10000号适老化接通率 值: {artConnRt}")
+                insert_indicator_data(p_day_id, 'artConnRt', artConnRt)
             else:
                 logger.warning("未找到 10000号适老化接通率 元素")
-                row_data['artConnRt'] = None
 
-            # 直接创建DataFrame
-            data = pd.DataFrame([row_data])
+            logger.info("尊老数据获取和入库操作完成")
 
-            return data
         else:
             logger.error('技能队列input获取失败！')
-            return pd.DataFrame()
 
     except Exception as e:
         logger.error(f"尊老数据获取异常: {e}")
-        return pd.DataFrame()
 
 
 def query_cf_data(browser):
-    row_data = {}  # 用字典收集一行的数据
+    # 获取昨天日期
+    today = datetime.date.today()
+    yesterday = today - datetime.timedelta(days=1)
+    p_day_id = yesterday.strftime('%Y%m%d')
 
     # 获取条件标签页
     try:
         tab = browser.get_tab(title='高频呼入统计报表')
         if tab is None:
             logger.warning("未找到 高频呼入统计报表 标签页，跳过该部分")
-        else:
-            logger.info('刷新浏览器tab页')
-            tab.refresh()
-            time.sleep(30)
     except Exception as e:
         logger.error(f"获取 高频呼入统计报表 标签页失败: {e}，跳过该部分")
         tab = None
@@ -505,21 +636,20 @@ def query_cf_data(browser):
                 'xpath://div[contains(@class,"left ui-droppable")]')
             tab.actions.release()
             time.sleep(20)
+
             # 10000号重复来电率(repeatRate)
             element = tab.ele('xpath://table[1]/tbody[1]/tr[2]/td[7]')
             if element:
                 repeatRate = element.text.strip()
-                row_data['repeatRate'] = element.text.strip()
                 logger.info(f"获取到 10000号重复来电率 值: {repeatRate}")
+                insert_indicator_data(p_day_id, 'repeatRate', repeatRate)
             else:
-                row_data['repeatRate'] = element.text.strip()
                 logger.warning("未找到 10000号重复来电率 元素")
 
-            # 直接创建DataFrame
-            data = pd.DataFrame([row_data])
-
-            return data
+            logger.info("重复来电率数据获取和入库操作完成")
 
         except Exception as e:
             logger.error(f"10000号重复来电率数据获取出错: {e}")
-            return pd.DataFrame()
+
+        finally:
+            tab.close()
