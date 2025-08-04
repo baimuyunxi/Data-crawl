@@ -201,6 +201,7 @@ def jt_4a_main():
             try:
                 # 获取p_day_id的后两位数字（日期）
                 target_day = p_day_id[-2:]
+                target_day = str(int(target_day))
                 logger.info(f"目标日期: {target_day}")
 
                 # 定位到日期表格的tbody

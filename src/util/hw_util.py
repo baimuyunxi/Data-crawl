@@ -138,7 +138,7 @@ def select_hunan_province(tab):
 
         cascader_input.click()
         logger.info("打开级联选择器")
-        time.sleep(1.5)
+        time.sleep(2)
 
         # 3. 点击广东大区展开子菜单
         # 使用动态xpath，忽略随机ID
@@ -182,7 +182,7 @@ def select_hunan_province(tab):
 
                 # 关闭下拉菜单
                 cascader_input.click()
-                time.sleep(1)
+                time.sleep(2)
 
                 # 验证选择结果
                 if tags_container:
@@ -211,6 +211,7 @@ def select_time_province(tab, data_time):
         time_input = tab.ele('xpath://form[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/input[1]')
         if time_input:
             time_input.click()
+            time.sleep(2)
             time_input_day = tab.eles('xpath://span[text()="按日"]', timeout=3)
             for x in time_input_day:
                 logger.info(f'日期: {x.states.is_clickable}')
