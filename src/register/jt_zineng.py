@@ -194,7 +194,7 @@ def main():
 
     logger.info("程序执行完成，关闭浏览器...")
     try:
-        # browser.close()
+        browser.close()
         logger.info("浏览器关闭成功")
     except Exception as e:
         logger.error(f"浏览器关闭失败: {e}")
