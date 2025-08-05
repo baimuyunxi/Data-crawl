@@ -232,11 +232,10 @@ def select_time_province(tab, data_time):
             day_input_text = data_time[0: 11]  # 获取 "2025 年 5 月"
             target_day = data_time.split(' ')[-2]  # 获取日期部分 "12"
 
-            # 处理前导零问题：同时准备带前导零和不带前导零的版本
-            target_day_with_zero = target_day  # 原始格式（可能有前导零）
+            # 统一使用去掉前导零的格式
             target_day_no_zero = str(int(target_day))  # 去掉前导零的格式
 
-            logger.info(f'判断当前月份是否为 {day_input_text}，目标日期: {target_day}（也尝试: {target_day_no_zero}）')
+            logger.info(f'判断当前月份是否为 {day_input_text}，目标日期: {target_day_no_zero}')
 
             # 循环查找并导航到目标月份
             for i in range(10):  # 增加循环次数以防万一
@@ -307,160 +306,51 @@ def select_time_province(tab, data_time):
                 logger.error('超出查找月份次数！！！')
                 return False
 
-            # 选择具体的日期 - 防止部分匹配问题
-            # 先找到所有包含目标数字的元素，然后筛选出精确匹配的
-            day_element = None
+            # 选择具体的日期 - 使用参考代码的简洁方法
+            try:
+                # 统一使用去掉前导零的格式
+                target_day = target_day_no_zero
+                logger.info(f"目标日期: {target_day}")
 
-            def find_exact_day_element(target_day_str):
-                """查找精确匹配的日期元素"""
-                logger.info(f'查找精确匹配的日期: {target_day_str}')
+                # 定位到日期表格的tbody
+                tbody = tab.ele('xpath:/html/body/div[7]/div[1]/div[2]/div[1]/table/tbody')
 
-                # 先尝试精确匹配
-                exact_element = tab.ele(
-                    f'xpath://div[contains(@class, "el-picker-panel__content el-date-range-picker__content is-left")]//td[@class="available"]//span[normalize-space(text())="{target_day_str}"]')
+                # 查找所有td元素
+                tds = tbody.eles('tag:td')
 
-                if exact_element:
-                    logger.info(f'通过精确匹配找到日期: {target_day_str}')
-                    return exact_element
+                target_td = None
+                for td in tds:
+                    # 检查td的class是否包含available
+                    if 'available' in td.attr('class'):
+                        # 获取td内的span元素文本
+                        span = td.ele('tag:span', timeout=1)
+                        if span and span.text.strip() == target_day:
+                            target_td = td
+                            logger.info(f"找到目标日期元素: {target_day}")
+                            break
 
-                # 如果精确匹配失败，找到所有包含该数字的元素
-                logger.info(f'精确匹配失败，查找所有包含 {target_day_str} 的元素')
-                all_matching_elements = tab.eles(
-                    f'xpath://div[contains(@class, "el-picker-panel__content el-date-range-picker__content is-left")]//td[@class="available"]//span[contains(text(), "{target_day_str}")]')
-
-                if all_matching_elements:
-                    logger.info(f'找到 {len(all_matching_elements)} 个包含 {target_day_str} 的元素')
-
-                    # 遍历所有匹配的元素，找到精确匹配的
-                    for element in all_matching_elements:
-                        element_text = element.text.strip()
-                        logger.info(f'检查元素文本: "{element_text}"')
-
-                        # 精确匹配检查
-                        if element_text == target_day_str:
-                            logger.info(f'找到精确匹配的元素: {element_text}')
-                            return element
-
-                    logger.warning(f'没有找到精确匹配 {target_day_str} 的元素')
-                    # 列出所有找到的文本用于调试
-                    found_texts = [elem.text.strip() for elem in all_matching_elements]
-                    logger.info(f'找到的文本: {found_texts}')
+                if target_td:
+                    # 双击目标td
+                    target_td.click(by_js=True)  # 使用JS点击确保成功
+                    time.sleep(1)
+                    target_td.click(by_js=True)  # 第二次点击形成双击效果
+                    logger.info(f"成功双击日期: {target_day}")
+                    time.sleep(2)
+                    return True
                 else:
-                    logger.warning(f'没有找到任何包含 {target_day_str} 的元素')
+                    logger.warning(f"未找到可用的日期: {target_day}")
+                    # 调试：列出所有可用日期
+                    available_days = []
+                    for td in tds:
+                        if 'available' in td.attr('class'):
+                            span = td.ele('tag:span', timeout=1)
+                            if span:
+                                available_days.append(span.text.strip())
+                    logger.info(f'当前月份可用日期: {available_days}')
+                    return False
 
-                return None
-
-            # 方法1：尝试原始格式（带前导零）
-            if target_day_with_zero:
-                day_element = find_exact_day_element(target_day_with_zero)
-
-            # 方法2：如果没找到，尝试不带前导零的版本
-            if not day_element and target_day_no_zero != target_day_with_zero:
-                day_element = find_exact_day_element(target_day_no_zero)
-
-            if day_element:
-                found_day = target_day_with_zero if day_element else target_day_no_zero
-                logger.info(f'找到可用日期 {found_day}，进行双击')
-                try:
-                    # 等待元素可见和可点击
-                    time.sleep(2)  # 等待页面稳定
-
-                    # 检查元素是否可见
-                    if day_element.states.is_displayed:
-                        logger.info('元素可见，开始点击')
-                        day_element.click()
-                        time.sleep(1)  # 短暂等待
-                        day_element.click()  # 双击
-                        logger.info('日期选择完成')
-                        return True
-                    else:
-                        logger.warning('元素不可见，尝试点击父元素td')
-                        # 尝试点击td元素而不是span
-                        td_element = day_element.parent()
-                        if td_element:
-                            td_element.click()
-                            time.sleep(1)
-                            td_element.click()
-                            logger.info('通过点击td完成日期选择')
-                            return True
-                        else:
-                            logger.error('找不到父元素td')
-                            return False
-                except Exception as e:
-                    logger.error(f'选择日期时出错: {e}')
-                    # 尝试使用DrissionPage的t:span@@tx()语法，同时尝试两种格式
-                    try:
-                        logger.info('尝试使用DrissionPage语法重新查找')
-
-                        def find_exact_day_element_drission(target_day_str):
-                            """使用DrissionPage语法查找精确匹配的日期元素"""
-                            logger.info(f'使用DrissionPage语法查找: {target_day_str}')
-
-                            # 先尝试精确匹配
-                            exact_element = tab.ele(f't:span@@tx()={target_day_str}')
-                            if exact_element:
-                                logger.info(f'DrissionPage精确匹配找到: {target_day_str}')
-                                return exact_element
-
-                            # 如果精确匹配失败，找到所有span元素，手动筛选
-                            logger.info(f'DrissionPage精确匹配失败，查找所有span元素')
-                            all_spans = tab.eles('t:span')
-
-                            if all_spans:
-                                logger.info(f'找到 {len(all_spans)} 个span元素，开始筛选')
-                                for span in all_spans:
-                                    try:
-                                        span_text = span.text.strip()
-                                        if span_text == target_day_str:
-                                            # 检查这个span是否在日期选择器的可用单元格中
-                                            parent_td = span.parent()
-                                            if parent_td and 'available' in parent_td.attr('class', ''):
-                                                logger.info(f'找到精确匹配的可用日期span: {span_text}')
-                                                return span
-                                    except:
-                                        continue
-
-                            logger.warning(f'DrissionPage语法也没找到精确匹配的 {target_day_str}')
-                            return None
-
-                        day_element_alt = None
-
-                        # 先尝试带前导零的
-                        day_element_alt = find_exact_day_element_drission(target_day_with_zero)
-                        if not day_element_alt:
-                            # 再尝试不带前导零的
-                            day_element_alt = find_exact_day_element_drission(target_day_no_zero)
-
-                        if day_element_alt:
-                            used_format = target_day_with_zero if day_element_alt else target_day_no_zero
-                            logger.info(f'通过DrissionPage语法找到精确匹配的日期 {used_format}')
-                            time.sleep(2)
-                            day_element_alt.click()
-                            time.sleep(1)
-                            day_element_alt.click()
-                            logger.info('日期选择完成')
-                            return True
-                        else:
-                            logger.error(
-                                f'DrissionPage语法也找不到精确匹配的日期 {target_day_with_zero} 或 {target_day_no_zero}')
-                            # 调试：列出所有可用日期
-                            available_days = tab.eles(
-                                'xpath://div[contains(@class, "el-picker-panel__content el-date-range-picker__content is-left")]//td[@class="available"]//span')
-                            if available_days:
-                                available_dates = [day.text.strip() for day in available_days]
-                                logger.info(f'当前月份可用日期: {available_dates}')
-                            return False
-                    except Exception as e2:
-                        logger.error(f'使用DrissionPage语法时也出错: {e2}')
-                        return False
-            else:
-                logger.error(f'找不到可用日期 {target_day_with_zero} 或 {target_day_no_zero}')
-                # 调试：列出所有可用日期
-                available_days = tab.eles(
-                    'xpath://div[contains(@class, "el-picker-panel__content el-date-range-picker__content is-left")]//td[@class="available"]//span')
-                if available_days:
-                    available_dates = [day.text.strip() for day in available_days]
-                    logger.info(f'当前月份可用日期: {available_dates}')
+            except Exception as date_e:
+                logger.error(f"日期选择失败: {date_e}")
                 return False
 
         else:
@@ -470,7 +360,6 @@ def select_time_province(tab, data_time):
     except Exception as e:
         logger.error(f"选择日期时出错: {e}")
         return False
-
 
 # 获取数据并立即入库
 def query_data(tab):

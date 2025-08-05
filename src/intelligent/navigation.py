@@ -114,6 +114,7 @@ def jt_4a_main():
 
     # 生成日期字段
     p_day_id = yesterday.strftime('%Y%m%d')
+    now_today = yesterday.strftime('%Y 年 %m 月 %d 日')
 
     # 连接浏览器
     browser = Chromium()
@@ -197,6 +198,72 @@ def jt_4a_main():
             logger.info("开始日期选择！")
             tab.ele('xpath://*[@id="app"]/div/div/section/div[1]/div[1]/div[2]/form/div[11]/div/div/input[1]').click()
             time.sleep(2)
+            # 月份获取判断
+            day_input_text = now_today[0: 11]
+
+            for i in range(10):
+                time.sleep(2)
+                # 获取当前显示的月份
+                current_month_ele = tab.ele('xpath:/html/body/div[5]/div[1]/div/div[1]/div/div')
+                if current_month_ele:
+                    current_month_text = current_month_ele.text
+                    logger.info(f'当前显示月份: {current_month_text}')
+
+                    # 比较当前月份与目标月份
+                    if current_month_text == day_input_text:
+                        logger.info('找到目标月份，开始选择日期')
+                        break
+                    else:
+                        # 提取年份和月份数字进行比较
+                        try:
+                            current_parts = current_month_text.split(' ')
+                            target_parts = day_input_text.split(' ')
+
+                            current_year = int(current_parts[0])
+                            current_month_num = int(current_parts[2].replace('月', ''))
+                            target_year = int(target_parts[0])
+                            target_month_num = int(target_parts[2].replace('月', ''))
+
+                            logger.info(
+                                f'当前: {current_year}年{current_month_num}月, 目标: {target_year}年{target_month_num}月')
+
+                            # 比较年月组合
+                            current_date_num = current_year * 12 + current_month_num
+                            target_date_num = target_year * 12 + target_month_num
+
+                            if target_date_num < current_date_num:
+                                # 目标日期小于当前日期，点击左箭头
+                                mon_left_but = tab.ele(
+                                    'xpath:/html/body/div[5]/div[1]/div/div[1]/div/button[2]')
+                                if mon_left_but:
+                                    logger.info('点击左箭头，向前翻页')
+                                    mon_left_but.click()
+                                else:
+                                    logger.error('找不到左箭头按钮')
+                                    return False
+                            elif target_date_num > current_date_num:
+                                # 目标日期大于当前日期，点击右箭头
+                                mon_right_but = tab.ele(
+                                    'xpath:/html/body/div[5]/div[1]/div/div[1]/div/button[4]')
+                                if mon_right_but:
+                                    logger.info('点击右箭头，向后翻页')
+                                    mon_right_but.click()
+                                else:
+                                    logger.error('找不到右箭头按钮')
+                                    return False
+                            else:
+                                # 年月相等，说明已经找到了目标月份
+                                logger.info('年月相等，找到目标月份')
+                                break
+                        except (ValueError, IndexError) as e:
+                            logger.error(f'解析年月时出错: {e}')
+                            logger.error(f'当前月份文本: {current_month_text}')
+                            logger.error(f'目标月份文本: {day_input_text}')
+                            return False
+                else:
+                    logger.error('找不到当前月份显示元素')
+                    return False
+
             # 新增的日期选择逻辑
             try:
                 # 获取p_day_id的后两位数字（日期）
