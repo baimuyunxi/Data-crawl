@@ -313,7 +313,7 @@ def select_time_province(tab, data_time):
                 logger.info(f"目标日期: {target_day}")
 
                 # 定位到日期表格的tbody
-                tbody = tab.ele('xpath:/html/body/div[7]/div[1]/div[2]/div[1]/table/tbody')
+                tbody = tab.ele('css:.el-date-range-picker .is-left tbody')
 
                 # 查找所有td元素
                 tds = tbody.eles('tag:td')

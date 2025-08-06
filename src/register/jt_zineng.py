@@ -35,7 +35,7 @@ def main():
     logger.info("访问集团4A平台网站...")
     try:
         browser.get("https://sdpc.dianxin.com")
-        time.sleep(5)
+        time.sleep(10)
         logger.info("网站访问成功")
     except Exception as e:
         logger.error(f"网站访问失败: {e}")
@@ -95,6 +95,8 @@ def main():
     # 代理加载
     logger.info("刷新页面并进行代理加载...")
     browser.refresh()
+    time.sleep(30)
+    browser.refresh()
     time.sleep(10)
     browser.ele('xpath://html/body/div[2]/div/div[1]/button/i').click()
     time.sleep(2)
@@ -102,7 +104,7 @@ def main():
     time.sleep(2)
     browser.ele(
         'xpath://*[@id="app"]/div/div[3]/div[3]/div/div/div[1]/div[4]/div/div[1]/div/div[1]/button/span').click()
-    time.sleep(15)
+    time.sleep(30)
 
     # 导航运管2.0平台 - 创建新标签页
     logger.info("创建新标签页，导航到运管2.0平台...")
