@@ -145,7 +145,7 @@ def jt_4a_main():
             time.sleep(2)
             logger.info('点击查询')
             tab.ele('xpath://*[@id="app"]/div[1]/form/div[3]/div/button[1]/span').click()
-            time.sleep(2)
+            time.sleep(5)
             logger.info('开始读取数据')
             element = tab.ele('xpath://*[@id="app"]/div[3]/div/div[3]/table/tbody/tr/td[6]/div')
             if element:
@@ -180,7 +180,7 @@ def jt_4a_main():
             logger.warning("未找到 数字人生产管理平台 标签页，跳过该部分")
         else:
             logger.info('刷新浏览器tab页')
-            # tab.refresh()
+            tab.refresh()
             time.sleep(5)
     except Exception as e:
         logger.error(f"获取 数字人生产管理平台 标签页失败: {e}，跳过该部分")
@@ -204,7 +204,7 @@ def jt_4a_main():
             for i in range(10):
                 time.sleep(2)
                 # 获取当前显示的月份
-                current_month_ele = tab.ele('xpath:/html/body/div[5]/div[1]/div/div[1]/div/div')
+                current_month_ele = tab.ele('css:.is-left .el-date-range-picker__header')
                 if current_month_ele:
                     current_month_text = current_month_ele.text
                     logger.info(f'当前显示月份: {current_month_text}')
@@ -233,8 +233,7 @@ def jt_4a_main():
 
                             if target_date_num < current_date_num:
                                 # 目标日期小于当前日期，点击左箭头
-                                mon_left_but = tab.ele(
-                                    'xpath:/html/body/div[5]/div[1]/div/div[1]/div/button[2]')
+                                mon_left_but = tab.ele('css:.is-left .el-icon-arrow-left')
                                 if mon_left_but:
                                     logger.info('点击左箭头，向前翻页')
                                     mon_left_but.click()
@@ -243,8 +242,7 @@ def jt_4a_main():
                                     return False
                             elif target_date_num > current_date_num:
                                 # 目标日期大于当前日期，点击右箭头
-                                mon_right_but = tab.ele(
-                                    'xpath:/html/body/div[5]/div[1]/div/div[1]/div/button[4]')
+                                mon_right_but = tab.ele('css:.is-left .el-icon-arrow-right')
                                 if mon_right_but:
                                     logger.info('点击右箭头，向后翻页')
                                     mon_right_but.click()
@@ -272,7 +270,7 @@ def jt_4a_main():
                 logger.info(f"目标日期: {target_day}")
 
                 # 定位到日期表格的tbody
-                tbody = tab.ele('xpath:/html/body/div[3]/div[1]/div/div[1]/table/tbody')
+                tbody = tab.ele('css:.is-left .el-date-table')
 
                 # 查找所有td元素
                 tds = tbody.eles('tag:td')

@@ -127,6 +127,10 @@ def main():
         navigation_password.input('Zyx714086')
         time.sleep(2)
 
+        # 点击切换图片验证码
+        tab_1.ele('xpath://*[@id="imgValid"]', timeout=5).click()
+        time.sleep(2)
+
         navigation_img = recognize_captcha_simple(tab_1, 'xpath://*[@id="imgValid"]')
         navigation_code = tab_1.ele('xpath://*[@id="txtValid"]', timeout=5)
         navigation_code.input(navigation_img)
