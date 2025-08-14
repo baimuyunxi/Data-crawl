@@ -133,8 +133,6 @@ def main_browser():
             logger.info('刷新浏览器tab页')
             # tab.refresh()
             time.sleep(10)
-            tab.ele(
-                'xpath://*[@id="root"]/div/section/section/main/div/div[3]/div/div[2]/div/span/span/span/button').click()
             return tab, p_day_id, browser
     except Exception as e:
         logger.error(f"获取 决策支持专家系统门户 标签页失败: {e}，跳过该部分")
@@ -220,20 +218,34 @@ def search_and_click_report(tab, search_text, target_text=None):
 def get_table_value_by_row_column(report_tab, row_name, column_name):
     """
     根据行名称和列名称获取表格中交叉位置的数值
+    适配多级表头的复杂表格
 
     Args:
         report_tab: 报表标签页对象
-        row_name: 行名称（例如："20250812" 或 "合计"）
-        column_name: 列名称（例如："处理工单总量"、"及时率（集团口径）"等）
+        row_name: 行名称（例如："20250813" 或 "合计"）
+        column_name: 列名称（例如："工单总量"、"一级预处理率"等）
 
     Returns:
         str: 交叉位置的数值，如果未找到返回None
     """
     try:
-        # 1. 定位到表格
-        table = report_tab.ele('css:.rows-height-counter')
+        # 1. 定位到表格 - 尝试多种选择器
+        table = None
+        selectors = [
+            'css:.rows-height-counter',
+            'xpath://tbody[@class="rows-height-counter"]',
+            'xpath://table//tbody',
+            'css:tbody'
+        ]
+
+        for selector in selectors:
+            table = report_tab.ele(selector)
+            if table:
+                logger.info(f"使用选择器 '{selector}' 成功定位到表格")
+                break
+
         if table is None:
-            logger.error("未找到class为'rows-height-counter'的表格")
+            logger.error("未找到表格元素")
             return None
 
         logger.info(f"成功定位到表格，开始查找行名称: {row_name}, 列名称: {column_name}")
@@ -246,53 +258,85 @@ def get_table_value_by_row_column(report_tab, row_name, column_name):
 
         logger.info(f"找到 {len(rows)} 行数据")
 
-        # 3. 找到表头行，获取列索引
-        header_row = rows[0]  # 第一行是表头
-        header_cells = header_row.eles('tag:td')
-
+        # 3. 分析表头结构，找到列索引
         column_index = None
-        for i, cell in enumerate(header_cells):
-            cell_text = cell.text.strip()
-            logger.debug(f"表头第{i}列: {cell_text}")
-            if cell_text == column_name:
-                column_index = i
-                logger.info(f"找到列名称 '{column_name}' 在第 {i} 列")
+
+        # 遍历所有表头行来查找列名
+        for header_row_idx in range(min(3, len(rows))):  # 最多检查前3行作为表头
+            header_row = rows[header_row_idx]
+            header_cells = header_row.eles('tag:td')
+
+            for i, cell in enumerate(header_cells):
+                cell_text = cell.text.strip()
+                logger.debug(f"表头第{header_row_idx}行第{i}列: '{cell_text}'")
+
+                # 检查是否匹配列名
+                if cell_text == column_name:
+                    column_index = i
+                    logger.info(f"在第{header_row_idx}行找到列名称 '{column_name}' 在第 {i} 列")
+                    break
+
+            if column_index is not None:
                 break
+
+        # 如果还未找到，尝试模糊匹配
+        if column_index is None:
+            logger.warning(f"精确匹配未找到列名称 '{column_name}'，尝试模糊匹配")
+            for header_row_idx in range(min(3, len(rows))):
+                header_row = rows[header_row_idx]
+                header_cells = header_row.eles('tag:td')
+
+                for i, cell in enumerate(header_cells):
+                    cell_text = cell.text.strip()
+                    if column_name in cell_text or cell_text in column_name:
+                        column_index = i
+                        logger.info(f"模糊匹配找到列名称 '{cell_text}' 在第 {i} 列")
+                        break
+
+                if column_index is not None:
+                    break
 
         if column_index is None:
             logger.error(f"未找到列名称: {column_name}")
+            # 打印所有表头信息用于调试
+            for header_row_idx in range(min(3, len(rows))):
+                header_row = rows[header_row_idx]
+                header_cells = header_row.eles('tag:td')
+                headers = [cell.text.strip() for cell in header_cells]
+                logger.error(f"第{header_row_idx}行表头: {headers}")
             return None
 
-        # 4. 遍历数据行，找到匹配的行
-        for row_idx, row in enumerate(rows[1:], 1):  # 跳过表头行
+        # 4. 查找数据行（从第3行开始，因为可能有多级表头）
+        data_start_row = 2  # 默认从第3行开始查找数据
+
+        for row_idx in range(data_start_row, len(rows)):
+            row = rows[row_idx]
             cells = row.eles('tag:td')
 
-            # 检查每个单元格，找到匹配的行名称
-            row_found = False
-            for cell in cells:
-                cell_text = cell.text.strip()
-                if cell_text == row_name:
-                    row_found = True
+            # 检查第一列是否包含行名称（通常日期在第一列）
+            if cells:
+                first_cell_text = cells[0].text.strip()
+                logger.debug(f"第{row_idx}行第一列: '{first_cell_text}'")
+
+                if first_cell_text == row_name:
                     logger.info(f"找到行名称 '{row_name}' 在第 {row_idx} 行")
-                    break
 
-            if row_found:
-                # 获取指定列的数值
-                if column_index < len(cells):
-                    target_cell = cells[column_index]
+                    # 获取指定列的数值
+                    if column_index < len(cells):
+                        target_cell = cells[column_index]
 
-                    # 尝试获取链接内的文本（如果存在）
-                    link_span = target_cell.ele('xpath:.//span[@class="linkspan"]')
-                    if link_span:
-                        value = link_span.text.strip()
+                        # 尝试获取链接内的文本（如果存在）
+                        link_span = target_cell.ele('xpath:.//span[@class="linkspan"]')
+                        if link_span:
+                            value = link_span.text.strip()
+                        else:
+                            value = target_cell.text.strip()
+
+                        logger.info(f"成功获取交叉位置数值: '{value}'")
+                        return value
                     else:
-                        value = target_cell.text.strip()
-
-                    logger.info(f"成功获取交叉位置数值: {value}")
-                    return value
-                else:
-                    logger.error(f"指定列索引 {column_index} 超出该行的列数 {len(cells)}")
-                    return None
+                        logger.error(f"指定列索引 {column_index} 超出该行的列数 {len(cells)}")
+                        return None
 
         logger.error(f"未找到行名称: {row_name}")
         return None
@@ -420,6 +464,7 @@ def get_order_wh_been():
                 time.sleep(3)
                 element_name = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
                 element_name.input('移动故障', clear=True)
+                time.sleep(3)
 
                 tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
                 time.sleep(5)
@@ -436,6 +481,7 @@ def get_order_wh_been():
                 time.sleep(3)
                 element_name = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
                 element_name.input('宽带故障', clear=True)
+                time.sleep(3)
 
                 tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
                 time.sleep(5)
@@ -482,6 +528,7 @@ def get_order_yd():
 
                 element_name = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
                 element_name.input('移动故障', clear=True)
+                time.sleep(3)
 
                 tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
                 time.sleep(5)
@@ -503,6 +550,152 @@ def get_order_yd():
         except Exception as e:
             print(f"打开 重复工单-移动故障 出错:{e}")
 
+
+# 宽带故障工单逾限且催单率
+def get_order_kd():
+    tab, p_day_id, browser = main_browser()
+
+    if tab is not None:
+        try:
+            success = search_and_click_report(tab, '重复工单-宽带故障')
+
+            if success:
+                logger.info("成功打开 重复工单-宽带故障 报表")
+                # 等待报表页面加载完成
+                time.sleep(5)
+
+                tab1 = browser.get_tab(title='重复工单报表-宽带')
+
+                element = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[18]/div[1]/input')
+                element.input(p_day_id, clear=True)
+                time.sleep(3)
+                element_end = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[19]/div[1]/input')
+                element_end.input(p_day_id, clear=True)
+                time.sleep(3)
+
+                element_name = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
+                element_name.input('宽带故障', clear=True)
+                time.sleep(3)
+
+                tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
+                time.sleep(5)
+
+                kdorderoverrat = get_table_value_by_row_column(tab1, "省客服中心", '催单率（48小时）')
+                if kdorderoverrat is not None:
+                    print(f"获取到 宽带故障工单逾限且催单率 值: {kdorderoverrat}")
+
+                    # 立即入库
+                    insert_indicator_data(p_day_id, 'kdorderoverrat', kdorderoverrat)
+                else:
+                    logger.warning("未找到 宽带故障工单逾限且催单率 元素")
+
+                tab1.close()
+
+            else:
+                logger.error("未能找到并点击目标报表")
+
+        except Exception as e:
+            print(f"打开 重复工单-宽带故障 出错:{e}")
+
+
+# 宽带在线预处理率
+def get_order_kd_online():
+    tab, p_day_id, browser = main_browser()
+
+    if tab is not None:
+        try:
+            success = search_and_click_report(tab, '宽带预处理(新)')
+
+            if success:
+                logger.info("成功打开 宽带预处理(新) 报表")
+                # 等待报表页面加载完成
+                time.sleep(5)
+
+                tab1 = browser.get_tab(title='宽带故障预处理(新)')
+
+                element = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
+                element.input(p_day_id, clear=True)
+                time.sleep(3)
+                element_end = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[4]/div[1]/input')
+                element_end.input(p_day_id, clear=True)
+                time.sleep(3)
+
+                tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[13]/span').click()
+                time.sleep(3)
+
+                tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
+                time.sleep(5)
+
+                kdonlinepre = get_table_value_by_row_column(tab1, "合计", '整体预处理率')
+                if kdonlinepre is not None:
+                    print(f"获取到 宽带在线预处理率 值: {kdonlinepre}")
+
+                    # 立即入库
+                    insert_indicator_data(p_day_id, 'kdonlinepre', kdonlinepre)
+                else:
+                    logger.warning("未找到 宽带在线预处理率 元素")
+
+                tab1.close()
+
+            else:
+                logger.error("未能找到并点击目标报表")
+
+        except Exception as e:
+            print(f"打开 宽带预处理(新) 出错:{e}")
+
+
+# 宽带故障预处理及时率
+def get_order_kd_pre():
+    tab, p_day_id, browser = main_browser()
+
+    if tab is not None:
+        try:
+            success = search_and_click_report(tab, '宽带故障处理及时率')
+
+            if success:
+                logger.info("成功打开 宽带故障处理及时率 报表")
+                # 等待报表页面加载完成
+                time.sleep(5)
+
+                tab1 = browser.get_tab(title='宽带故障处理及时率')
+
+                element = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
+                element.input(p_day_id, clear=True)
+                time.sleep(3)
+                element_end = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[4]/div[1]/input')
+                element_end.input(p_day_id, clear=True)
+                time.sleep(3)
+
+                tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[11]/span').click()
+                time.sleep(3)
+
+                tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
+                time.sleep(5)
+
+                kdorderpre = get_table_value_by_row_column(tab1, "合计", '客服中心1小时及时率')
+                if kdorderpre is not None:
+                    print(f"获取到 宽带故障预处理及时率 值: {kdorderpre}")
+
+                    # 立即入库
+                    insert_indicator_data(p_day_id, 'kdorderpre', kdorderpre)
+                else:
+                    logger.warning("未找到 宽带故障预处理及时率 元素")
+
+                tab1.close()
+
+            else:
+                logger.error("未能找到并点击目标报表")
+
+        except Exception as e:
+            print(f"打开 宽带预处理(新) 出错:{e}")
+
+
 if __name__ == "__main__":
     # 执行主函数
     get_strictest_work_oder()
+    get_order_duplicate()
+    get_order_wh_been()
+    get_order_yd()
+    get_order_kd()
+    get_order_kd_online()
+    get_order_kd_pre()

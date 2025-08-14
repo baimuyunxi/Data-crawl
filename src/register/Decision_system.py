@@ -48,8 +48,10 @@ def main():
     time.sleep(2)
     browser.ele('xpath://*[@id="loginBtn"]').click()
     time.sleep(20)
+    browser.ele(
+        'xpath://*[@id="root"]/div/section/section/main/div/div[3]/div/div[2]/div/span/span/span/button').click()
 
-    browser.close()
+    # browser.close()
 
 
 if __name__ == "__main__":
