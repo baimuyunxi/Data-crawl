@@ -50,7 +50,11 @@ def process_single_date_data(result_df):
         result_df['p_day_id'] = result_df['p_day_id'].astype(str)
 
     # 处理百分比字段 - 转换为数值类型，保持None值
-    percentage_columns = ['word5Rate', 'farCabinetRate', 'repeatRate']
+    percentage_columns = ['ordersolve', 'orderdeclaration', 'orderrepeat',
+                          'moveorder', 'bandorder', 'tsordersolve',
+                          'cxordersolve', 'gzordersolve', 'tsordertimerat',
+                          'tsorderoverrat', 'ydorderoverrat', 'kdorderoverrat',
+                          'kdonlinepre', 'kdorderpre']
 
     for col in percentage_columns:
         if col in result_df.columns:
@@ -213,6 +217,91 @@ def search_and_click_report(tab, search_text, target_text=None):
         return False
 
 
+def get_table_value_by_row_column(report_tab, row_name, column_name):
+    """
+    根据行名称和列名称获取表格中交叉位置的数值
+
+    Args:
+        report_tab: 报表标签页对象
+        row_name: 行名称（例如："20250812" 或 "合计"）
+        column_name: 列名称（例如："处理工单总量"、"及时率（集团口径）"等）
+
+    Returns:
+        str: 交叉位置的数值，如果未找到返回None
+    """
+    try:
+        # 1. 定位到表格
+        table = report_tab.ele('css:.rows-height-counter')
+        if table is None:
+            logger.error("未找到class为'rows-height-counter'的表格")
+            return None
+
+        logger.info(f"成功定位到表格，开始查找行名称: {row_name}, 列名称: {column_name}")
+
+        # 2. 获取所有行
+        rows = table.eles('tag:tr')
+        if not rows:
+            logger.error("表格中未找到任何行")
+            return None
+
+        logger.info(f"找到 {len(rows)} 行数据")
+
+        # 3. 找到表头行，获取列索引
+        header_row = rows[0]  # 第一行是表头
+        header_cells = header_row.eles('tag:td')
+
+        column_index = None
+        for i, cell in enumerate(header_cells):
+            cell_text = cell.text.strip()
+            logger.debug(f"表头第{i}列: {cell_text}")
+            if cell_text == column_name:
+                column_index = i
+                logger.info(f"找到列名称 '{column_name}' 在第 {i} 列")
+                break
+
+        if column_index is None:
+            logger.error(f"未找到列名称: {column_name}")
+            return None
+
+        # 4. 遍历数据行，找到匹配的行
+        for row_idx, row in enumerate(rows[1:], 1):  # 跳过表头行
+            cells = row.eles('tag:td')
+
+            # 检查每个单元格，找到匹配的行名称
+            row_found = False
+            for cell in cells:
+                cell_text = cell.text.strip()
+                if cell_text == row_name:
+                    row_found = True
+                    logger.info(f"找到行名称 '{row_name}' 在第 {row_idx} 行")
+                    break
+
+            if row_found:
+                # 获取指定列的数值
+                if column_index < len(cells):
+                    target_cell = cells[column_index]
+
+                    # 尝试获取链接内的文本（如果存在）
+                    link_span = target_cell.ele('xpath:.//span[@class="linkspan"]')
+                    if link_span:
+                        value = link_span.text.strip()
+                    else:
+                        value = target_cell.text.strip()
+
+                    logger.info(f"成功获取交叉位置数值: {value}")
+                    return value
+                else:
+                    logger.error(f"指定列索引 {column_index} 超出该行的列数 {len(cells)}")
+                    return None
+
+        logger.error(f"未找到行名称: {row_name}")
+        return None
+
+    except Exception as e:
+        logger.error(f"获取表格数值时出错: {e}")
+        return None
+
+
 # 最严工单问题解决率
 def get_strictest_work_oder():
     tab, p_day_id, browser = main_browser()
@@ -229,8 +318,23 @@ def get_strictest_work_oder():
                 tab1 = browser.get_tab(title='客户工单执行情况统计表-预办结')
 
                 element = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
-                element.input('20250811', clear=True)
+                element.input(p_day_id, clear=True)
+                time.sleep(3)
+                element_end = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[4]/div[1]/input')
+                element_end.input(p_day_id, clear=True)
+                time.sleep(3)
 
+                tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
+                time.sleep(5)
+
+                ordersolve = get_table_value_by_row_column(tab1, "合计", '解决率（员工点选）')
+                if ordersolve != None:
+                    print(f"获取到 最严工单问题解决率 值: {ordersolve}")
+
+                    # 立即入库
+                    insert_indicator_data(p_day_id, 'ordersolve', ordersolve)
+                else:
+                    logger.warning("未找到 最严工单问题解决率 元素")
 
             else:
                 logger.error("未能找到并点击目标报表")
