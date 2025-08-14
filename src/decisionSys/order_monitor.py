@@ -328,7 +328,7 @@ def get_strictest_work_oder():
                 time.sleep(5)
 
                 ordersolve = get_table_value_by_row_column(tab1, "合计", '解决率（员工点选）')
-                if ordersolve != None:
+                if ordersolve is not None:
                     print(f"获取到 最严工单问题解决率 值: {ordersolve}")
 
                     # 立即入库
@@ -336,12 +336,172 @@ def get_strictest_work_oder():
                 else:
                     logger.warning("未找到 最严工单问题解决率 元素")
 
+                tab1.close()
+
             else:
                 logger.error("未能找到并点击目标报表")
 
         except Exception as e:
             print(f"打开 客户工单执行情况统计表-预办结 出错:{e}")
 
+
+# 投诉处理重复率 投诉工单逾限且催单率
+def get_order_duplicate():
+    tab, p_day_id, browser = main_browser()
+
+    if tab is not None:
+        try:
+            success = search_and_click_report(tab, '重复工单-同一问题')
+
+            if success:
+                logger.info("成功打开 重复工单-同一问题 报表")
+                # 等待报表页面加载完成
+                time.sleep(5)
+
+                tab1 = browser.get_tab(title='重复工单-同一问题')
+
+                element = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[18]/div[1]/input')
+                element.input(p_day_id, clear=True)
+                time.sleep(3)
+                element_end = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[19]/div[1]/input')
+                element_end.input(p_day_id, clear=True)
+                time.sleep(3)
+
+                tab1.ele('xpath://*[@id="fr-btn-FORMSUBMIT0_C"]/div/em/button').click()
+                time.sleep(5)
+
+                orderrepeat = get_table_value_by_row_column(tab1, "合计", '重复工单率')
+                if orderrepeat is not None:
+                    print(f"获取到 投诉处理重复率 值: {orderrepeat}")
+
+                    # 立即入库
+                    insert_indicator_data(p_day_id, 'orderrepeat', orderrepeat)
+                else:
+                    logger.warning("未找到 投诉处理重复率 元素")
+
+                tsorderoverrat = get_table_value_by_row_column(tab1, "合计", '逾限后催单率')
+                if tsorderoverrat is not None:
+                    print(f"获取到 投诉工单逾限且催单率 值: {tsorderoverrat}")
+
+                    # 立即入库
+                    insert_indicator_data(p_day_id, 'tsorderoverrat', tsorderoverrat)
+                else:
+                    logger.warning("未找到 投诉工单逾限且催单率 元素")
+
+                tab1.close()
+
+            else:
+                logger.error("未能找到并点击目标报表")
+
+        except Exception as e:
+            print(f"打开 重复工单-同一问题 出错:{e}")
+
+
+# 移动故障工单重复率（万号办结）   宽带故障工单重复率（万号办结）
+def get_order_wh_been():
+    tab, p_day_id, browser = main_browser()
+
+    if tab is not None:
+        try:
+            success = search_and_click_report(tab, '重复工单')
+
+            if success:
+                logger.info("成功打开 重复工单 报表")
+                # 等待报表页面加载完成
+                time.sleep(5)
+
+                tab1 = browser.get_tab(title='重复工单报表')
+
+                element = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[18]/div[1]/input')
+                element.input(p_day_id, clear=True)
+                time.sleep(3)
+                element_end = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[19]/div[1]/input')
+                element_end.input(p_day_id, clear=True)
+                time.sleep(3)
+                element_name = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
+                element_name.input('移动故障', clear=True)
+
+                tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
+                time.sleep(5)
+
+                moveorder = get_table_value_by_row_column(tab1, "省客服中心", '重复工单率')
+                if moveorder is not None:
+                    print(f"获取到 移动故障工单重复率（万号办结） 值: {moveorder}")
+
+                    # 立即入库
+                    insert_indicator_data(p_day_id, 'moveorder', moveorder)
+                else:
+                    logger.warning("未找到 移动故障工单重复率（万号办结） 元素")
+
+                time.sleep(3)
+                element_name = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
+                element_name.input('宽带故障', clear=True)
+
+                tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
+                time.sleep(5)
+
+                bandorder = get_table_value_by_row_column(tab1, "省客服中心", '重复工单率')
+                if bandorder is not None:
+                    print(f"获取到 宽带故障工单重复率（万号办结） 值: {bandorder}")
+
+                    # 立即入库
+                    insert_indicator_data(p_day_id, 'bandorder', bandorder)
+                else:
+                    logger.warning("未找到 宽带故障工单重复率（万号办结） 元素")
+
+                tab1.close()
+
+            else:
+                logger.error("未能找到并点击目标报表")
+
+        except Exception as e:
+            print(f"打开 重复工单 出错:{e}")
+
+
+# 移动故障工单逾限且催单率
+def get_order_yd():
+    tab, p_day_id, browser = main_browser()
+
+    if tab is not None:
+        try:
+            success = search_and_click_report(tab, '重复工单-移动故障')
+
+            if success:
+                logger.info("成功打开 重复工单-移动故障 报表")
+                # 等待报表页面加载完成
+                time.sleep(5)
+
+                tab1 = browser.get_tab(title='重复工单报表-移动')
+
+                element = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[18]/div[1]/input')
+                element.input(p_day_id, clear=True)
+                time.sleep(3)
+                element_end = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[19]/div[1]/input')
+                element_end.input(p_day_id, clear=True)
+                time.sleep(3)
+
+                element_name = tab1.ele('xpath://*[@id="id_container"]/div[1]/div[1]/div[3]/div/div[2]/div[1]/input')
+                element_name.input('移动故障', clear=True)
+
+                tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
+                time.sleep(5)
+
+                ydorderoverrat = get_table_value_by_row_column(tab1, "省客服中心", '催单率（48小时）')
+                if ydorderoverrat is not None:
+                    print(f"获取到 移动故障工单逾限且催单率 值: {ydorderoverrat}")
+
+                    # 立即入库
+                    insert_indicator_data(p_day_id, 'ydorderoverrat', ydorderoverrat)
+                else:
+                    logger.warning("未找到 移动故障工单逾限且催单率 元素")
+
+                tab1.close()
+
+            else:
+                logger.error("未能找到并点击目标报表")
+
+        except Exception as e:
+            print(f"打开 重复工单-移动故障 出错:{e}")
 
 if __name__ == "__main__":
     # 执行主函数
