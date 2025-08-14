@@ -35,7 +35,7 @@ def main():
 
     # 输入密码
     user_password = browser.ele('xpath://*[@id="pwdInputDouble"]', timeout=5)
-    user_password.input('Zy.7140861!')
+    user_password.input('Zy.714!0861')
     time.sleep(2)
 
     # 短信
