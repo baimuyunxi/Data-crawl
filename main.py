@@ -13,6 +13,7 @@ from src.register import IM_platform
 # 导入需要执行的模块
 from src.register import jt_zineng
 from src.register import management
+from src.register import Decision_system  # 新增导入
 
 # 获取exe文件所在目录，确保日志文件在正确位置
 if getattr(sys, 'frozen', False):
@@ -53,6 +54,7 @@ class DailyScheduler:
         self.task_count = 0
         self.success_count = 0
         self.failed_count = 0
+        self.decision_task_count = 0  # 新增决策系统任务计数器
 
     def execute_task(self, task_name, task_module):
         """执行单个任务的通用方法"""
@@ -132,12 +134,55 @@ class DailyScheduler:
         transport_logger.info(f"成功: {self.success_count}, 失败: {self.failed_count}, 总耗时: {total_duration:.2f}秒")
         transport_logger.info("=" * 80)
 
+    def decision_job(self):
+        """每日2:40执行的决策系统任务"""
+        job_start_time = datetime.datetime.now()
+        self.decision_task_count += 1
+        self.success_count = 0
+        self.failed_count = 0
+
+        logger.info("=" * 80)
+        logger.info(f"开始执行每日2:40决策系统任务 - 第{self.decision_task_count}次执行")
+        logger.info(f"当前时间: {job_start_time}")
+        logger.info("=" * 80)
+
+        transport_logger.info("=" * 80)
+        transport_logger.info(f"[决策任务开始] 第{self.decision_task_count}次决策系统任务 - {job_start_time}")
+        transport_logger.info("=" * 80)
+
+        # 执行决策系统任务
+        self.execute_task("决策系统", Decision_system)
+
+        job_end_time = datetime.datetime.now()
+        total_duration = (job_end_time - job_start_time).total_seconds()
+
+        logger.info("=" * 80)
+        logger.info(f"决策系统任务执行完成 - 成功: {self.success_count}, 失败: {self.failed_count}")
+        logger.info(f"总耗时: {total_duration:.2f}秒")
+        logger.info("=" * 80)
+
+        transport_logger.info("=" * 80)
+        transport_logger.info(f"[决策任务完成] 第{self.decision_task_count}次决策系统任务完成")
+        transport_logger.info(f"成功: {self.success_count}, 失败: {self.failed_count}, 总耗时: {total_duration:.2f}秒")
+        transport_logger.info("=" * 80)
+
     def get_next_run_time(self):
         """获取下次运行时间"""
         now = datetime.datetime.now()
         next_run = now.replace(hour=8, minute=10, second=0, microsecond=0)
 
         # 如果今天的8:10已经过了，则计算明天的8:10
+        if next_run <= now:
+            next_run += datetime.timedelta(days=1)
+
+        return next_run
+
+    def get_next_decision_run_time(self):
+        """获取下次决策系统运行时间"""
+        now = datetime.datetime.now()
+        next_run = now.replace(hour=2, minute=40, second=0, microsecond=0)
+
+        # 如果今天的2:40已经过了，则计算明天的2:40
         if next_run <= now:
             next_run += datetime.timedelta(days=1)
 
@@ -155,9 +200,13 @@ class DailyScheduler:
 
         # 设置每日08:10的定时任务
         schedule.every().day.at("08:10").do(self.daily_job)
+        # 新增：设置每日02:40的决策系统定时任务
+        schedule.every().day.at("02:40").do(self.decision_job)
 
         next_run = self.get_next_run_time()
+        next_decision_run = self.get_next_decision_run_time()
         logger.info(f"已设置每日08:10定时任务，下次执行时间: {next_run}")
+        logger.info(f"已设置每日02:40决策系统任务，下次执行时间: {next_decision_run}")
 
         # 显示系统信息
         logger.info("=" * 50)
@@ -181,11 +230,19 @@ class DailyScheduler:
                 current_time = datetime.datetime.now()
                 if current_time.minute == 0 and current_time.second < 60:
                     next_run = self.get_next_run_time()
+                    next_decision_run = self.get_next_decision_run_time()
+
                     time_until_next = next_run - current_time
                     hours = int(time_until_next.total_seconds() // 3600)
                     minutes = int((time_until_next.total_seconds() % 3600) // 60)
-                    logger.info(f"[状态检查] 当前时间: {current_time.strftime('%Y-%m-%d %H:%M')}, "
-                                f"距离下次执行还有: {hours}小时{minutes}分钟")
+
+                    time_until_decision = next_decision_run - current_time
+                    decision_hours = int(time_until_decision.total_seconds() // 3600)
+                    decision_minutes = int((time_until_decision.total_seconds() % 3600) // 60)
+
+                    logger.info(f"[状态检查] 当前时间: {current_time.strftime('%Y-%m-%d %H:%M')}")
+                    logger.info(f"  距离8:10任务还有: {hours}小时{minutes}分钟")
+                    logger.info(f"  距离2:40决策任务还有: {decision_hours}小时{decision_minutes}分钟")
 
                 time.sleep(60)  # 每分钟检查一次
 
@@ -208,9 +265,11 @@ def main():
     logger.info("=== 每日定时任务管理器启动 ===")
     logger.info(f"启动时间: {datetime.datetime.now()}")
     logger.info("任务配置:")
-    logger.info("- 执行时间: 每日08:10")
+    logger.info("- 执行时间1: 每日08:10")
     logger.info("- 执行顺序: jt_zineng.py -> management.py -> IM_platform.py")
     logger.info("- 任务间隔: 5秒")
+    logger.info("- 执行时间2: 每日02:40")  # 新增任务说明
+    logger.info("- 执行内容: Decision_system.py")  # 新增任务说明
     logger.info("=" * 50)
 
     # 创建调度器实例

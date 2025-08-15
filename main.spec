@@ -83,6 +83,7 @@ a = Analysis(
         'src.region.transporttation',
         'src.region.importtation',
         'src.intelligent.navigation',
+        'src.decisionSys.order_monitor',
         'src.util.hw_util',
         'src.util.Agent',
         'src.util.verificationCode.ImageCode',
@@ -92,6 +93,7 @@ a = Analysis(
         'src.register.IM_platform',
         'src.register.jt_zineng',
         'src.register.management',
+        'src.register.Decision_system',
         'src.AuthCode.mesmain',
     ],
 
