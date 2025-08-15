@@ -215,37 +215,24 @@ def search_and_click_report(tab, search_text, target_text=None):
         return False
 
 
-def get_table_value_by_row_column(report_tab, row_name, column_name):
+def get_table_value_by_row_column(report_tab, row_name, column_name, is_multi_header=False):
     """
     根据行名称和列名称获取表格中交叉位置的数值
-    适配多级表头的复杂表格
 
     Args:
         report_tab: 报表标签页对象
-        row_name: 行名称（例如："20250813" 或 "合计"）
-        column_name: 列名称（例如："工单总量"、"一级预处理率"等）
+        row_name: 行名称（例如："20250812" 或 "合计"）
+        column_name: 列名称（例如："处理工单总量"、"及时率（集团口径）"等）
+        is_multi_header: 是否为多级表头，默认False
 
     Returns:
         str: 交叉位置的数值，如果未找到返回None
     """
     try:
-        # 1. 定位到表格 - 尝试多种选择器
-        table = None
-        selectors = [
-            'css:.rows-height-counter',
-            'xpath://tbody[@class="rows-height-counter"]',
-            'xpath://table//tbody',
-            'css:tbody'
-        ]
-
-        for selector in selectors:
-            table = report_tab.ele(selector)
-            if table:
-                logger.info(f"使用选择器 '{selector}' 成功定位到表格")
-                break
-
+        # 1. 定位到表格
+        table = report_tab.ele('css:.rows-height-counter')
         if table is None:
-            logger.error("未找到表格元素")
+            logger.error("未找到class为'rows-height-counter'的表格")
             return None
 
         logger.info(f"成功定位到表格，开始查找行名称: {row_name}, 列名称: {column_name}")
@@ -258,42 +245,36 @@ def get_table_value_by_row_column(report_tab, row_name, column_name):
 
         logger.info(f"找到 {len(rows)} 行数据")
 
-        # 3. 分析表头结构，找到列索引
+        # 3. 找到表头行，获取列索引
         column_index = None
-
-        # 遍历所有表头行来查找列名
-        for header_row_idx in range(min(3, len(rows))):  # 最多检查前3行作为表头
-            header_row = rows[header_row_idx]
-            header_cells = header_row.eles('tag:td')
-
-            for i, cell in enumerate(header_cells):
-                cell_text = cell.text.strip()
-                logger.debug(f"表头第{header_row_idx}行第{i}列: '{cell_text}'")
-
-                # 检查是否匹配列名
-                if cell_text == column_name:
-                    column_index = i
-                    logger.info(f"在第{header_row_idx}行找到列名称 '{column_name}' 在第 {i} 列")
-                    break
-
-            if column_index is not None:
-                break
-
-        # 如果还未找到，尝试模糊匹配
-        if column_index is None:
-            logger.warning(f"精确匹配未找到列名称 '{column_name}'，尝试模糊匹配")
+        if is_multi_header:
+            # 多级表头情况：遍历前几行作为表头
             for header_row_idx in range(min(3, len(rows))):
                 header_row = rows[header_row_idx]
                 header_cells = header_row.eles('tag:td')
 
+                # 遍历所有单元格
                 for i, cell in enumerate(header_cells):
                     cell_text = cell.text.strip()
-                    if column_name in cell_text or cell_text in column_name:
+                    logger.debug(f"多级表头第{header_row_idx}行第{i}列: {cell_text}")
+                    if cell_text == column_name:
                         column_index = i
-                        logger.info(f"模糊匹配找到列名称 '{cell_text}' 在第 {i} 列")
+                        logger.info(f"在多级表头第{header_row_idx}行找到列名称 '{column_name}' 在第 {i} 列")
                         break
 
                 if column_index is not None:
+                    break
+        else:
+            # 单级表头情况：只检查第一行
+            header_row = rows[0]
+            header_cells = header_row.eles('tag:td')
+
+            for i, cell in enumerate(header_cells):
+                cell_text = cell.text.strip()
+                logger.debug(f"单级表头第{i}列: {cell_text}")
+                if cell_text == column_name:
+                    column_index = i
+                    logger.info(f"在单级表头找到列名称 '{column_name}' 在第 {i} 列")
                     break
 
         if column_index is None:
@@ -302,41 +283,57 @@ def get_table_value_by_row_column(report_tab, row_name, column_name):
             for header_row_idx in range(min(3, len(rows))):
                 header_row = rows[header_row_idx]
                 header_cells = header_row.eles('tag:td')
-                headers = [cell.text.strip() for cell in header_cells]
-                logger.error(f"第{header_row_idx}行表头: {headers}")
+                all_headers = []
+                for i, cell in enumerate(header_cells):
+                    all_headers.append(f"第{i}列: '{cell.text.strip()}'")
+                logger.error(f"第{header_row_idx}行所有表头: {all_headers}")
             return None
 
-        # 4. 查找数据行（从第3行开始，因为可能有多级表头）
-        data_start_row = 2  # 默认从第3行开始查找数据
+        # 4. 遍历数据行，找到匹配的行
+        if is_multi_header:
+            # 多级表头：从第3行开始查找数据
+            start_row = 2
+        else:
+            # 单级表头：从第2行开始查找数据
+            start_row = 1
 
-        for row_idx in range(data_start_row, len(rows)):
-            row = rows[row_idx]
+        for row_idx, row in enumerate(rows[start_row:], start_row):
             cells = row.eles('tag:td')
 
-            # 检查第一列是否包含行名称（通常日期在第一列）
-            if cells:
-                first_cell_text = cells[0].text.strip()
-                logger.debug(f"第{row_idx}行第一列: '{first_cell_text}'")
+            # 检查所有单元格中是否有匹配的行名称
+            row_found = False
+            for cell_idx, cell in enumerate(cells):
+                cell_text = cell.text.strip()
+                if cell_text == row_name:
+                    logger.info(f"找到行名称 '{row_name}' 在第 {row_idx} 行第 {cell_idx} 列")
+                    row_found = True
+                    break
 
-                if first_cell_text == row_name:
-                    logger.info(f"找到行名称 '{row_name}' 在第 {row_idx} 行")
+            if row_found:
+                # 获取指定列的数值
+                if column_index <= len(cells):
+                    if column_name == '重复工单率' and row_name == '省客服中心':
+                        column_index = column_index - 1
+                    elif column_name == '催单率（48小时）' and row_name == '省客服中心':
+                        column_index = column_index - 1
+                    elif column_name == '催单率' and row_name == '省客服中心':
+                        column_index = 17
+                    elif column_name == '整体预处理率' or column_name == '客服中心1小时及时率':
+                        column_index = column_index + 5
+                    target_cell = cells[column_index]
 
-                    # 获取指定列的数值
-                    if column_index < len(cells):
-                        target_cell = cells[column_index]
-
-                        # 尝试获取链接内的文本（如果存在）
-                        link_span = target_cell.ele('xpath:.//span[@class="linkspan"]')
-                        if link_span:
-                            value = link_span.text.strip()
-                        else:
-                            value = target_cell.text.strip()
-
-                        logger.info(f"成功获取交叉位置数值: '{value}'")
-                        return value
+                    # 尝试获取链接内的文本（如果存在）
+                    link_span = target_cell.ele('xpath:.//span[@class="linkspan"]')
+                    if link_span:
+                        value = link_span.text.strip()
                     else:
-                        logger.error(f"指定列索引 {column_index} 超出该行的列数 {len(cells)}")
-                        return None
+                        value = target_cell.text.strip()
+
+                    logger.info(f"成功获取交叉位置数值: {value}")
+                    return value
+                else:
+                    logger.error(f"指定列索引 {column_index} 超出该行的列数 {len(cells)}")
+                    return None
 
         logger.error(f"未找到行名称: {row_name}")
         return None
@@ -373,7 +370,7 @@ def get_strictest_work_oder():
 
                 ordersolve = get_table_value_by_row_column(tab1, "合计", '解决率（员工点选）')
                 if ordersolve is not None:
-                    print(f"获取到 最严工单问题解决率 值: {ordersolve}")
+                    logger.info(f"获取到 最严工单问题解决率 值: {ordersolve}")
 
                     # 立即入库
                     insert_indicator_data(p_day_id, 'ordersolve', ordersolve)
@@ -386,7 +383,7 @@ def get_strictest_work_oder():
                 logger.error("未能找到并点击目标报表")
 
         except Exception as e:
-            print(f"打开 客户工单执行情况统计表-预办结 出错:{e}")
+            logger.info(f"打开 客户工单执行情况统计表-预办结 出错:{e}")
 
 
 # 投诉处理重复率 投诉工单逾限且催单率
@@ -416,7 +413,7 @@ def get_order_duplicate():
 
                 orderrepeat = get_table_value_by_row_column(tab1, "合计", '重复工单率')
                 if orderrepeat is not None:
-                    print(f"获取到 投诉处理重复率 值: {orderrepeat}")
+                    logger.info(f"获取到 投诉处理重复率 值: {orderrepeat}")
 
                     # 立即入库
                     insert_indicator_data(p_day_id, 'orderrepeat', orderrepeat)
@@ -425,7 +422,7 @@ def get_order_duplicate():
 
                 tsorderoverrat = get_table_value_by_row_column(tab1, "合计", '逾限后催单率')
                 if tsorderoverrat is not None:
-                    print(f"获取到 投诉工单逾限且催单率 值: {tsorderoverrat}")
+                    logger.info(f"获取到 投诉工单逾限且催单率 值: {tsorderoverrat}")
 
                     # 立即入库
                     insert_indicator_data(p_day_id, 'tsorderoverrat', tsorderoverrat)
@@ -438,7 +435,7 @@ def get_order_duplicate():
                 logger.error("未能找到并点击目标报表")
 
         except Exception as e:
-            print(f"打开 重复工单-同一问题 出错:{e}")
+            logger.info(f"打开 重复工单-同一问题 出错:{e}")
 
 
 # 移动故障工单重复率（万号办结）   宽带故障工单重复率（万号办结）
@@ -471,7 +468,7 @@ def get_order_wh_been():
 
                 moveorder = get_table_value_by_row_column(tab1, "省客服中心", '重复工单率')
                 if moveorder is not None:
-                    print(f"获取到 移动故障工单重复率（万号办结） 值: {moveorder}")
+                    logger.info(f"获取到 移动故障工单重复率（万号办结） 值: {moveorder}")
 
                     # 立即入库
                     insert_indicator_data(p_day_id, 'moveorder', moveorder)
@@ -488,7 +485,7 @@ def get_order_wh_been():
 
                 bandorder = get_table_value_by_row_column(tab1, "省客服中心", '重复工单率')
                 if bandorder is not None:
-                    print(f"获取到 宽带故障工单重复率（万号办结） 值: {bandorder}")
+                    logger.info(f"获取到 宽带故障工单重复率（万号办结） 值: {bandorder}")
 
                     # 立即入库
                     insert_indicator_data(p_day_id, 'bandorder', bandorder)
@@ -501,7 +498,7 @@ def get_order_wh_been():
                 logger.error("未能找到并点击目标报表")
 
         except Exception as e:
-            print(f"打开 重复工单 出错:{e}")
+            logger.info(f"打开 重复工单 出错:{e}")
 
 
 # 移动故障工单逾限且催单率
@@ -535,7 +532,7 @@ def get_order_yd():
 
                 ydorderoverrat = get_table_value_by_row_column(tab1, "省客服中心", '催单率（48小时）')
                 if ydorderoverrat is not None:
-                    print(f"获取到 移动故障工单逾限且催单率 值: {ydorderoverrat}")
+                    logger.info(f"获取到 移动故障工单逾限且催单率 值: {ydorderoverrat}")
 
                     # 立即入库
                     insert_indicator_data(p_day_id, 'ydorderoverrat', ydorderoverrat)
@@ -548,7 +545,7 @@ def get_order_yd():
                 logger.error("未能找到并点击目标报表")
 
         except Exception as e:
-            print(f"打开 重复工单-移动故障 出错:{e}")
+            logger.info(f"打开 重复工单-移动故障 出错:{e}")
 
 
 # 宽带故障工单逾限且催单率
@@ -580,9 +577,9 @@ def get_order_kd():
                 tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
                 time.sleep(5)
 
-                kdorderoverrat = get_table_value_by_row_column(tab1, "省客服中心", '催单率（48小时）')
+                kdorderoverrat = get_table_value_by_row_column(tab1, "省客服中心", '催单率')
                 if kdorderoverrat is not None:
-                    print(f"获取到 宽带故障工单逾限且催单率 值: {kdorderoverrat}")
+                    logger.info(f"获取到 宽带故障工单逾限且催单率 值: {kdorderoverrat}")
 
                     # 立即入库
                     insert_indicator_data(p_day_id, 'kdorderoverrat', kdorderoverrat)
@@ -595,7 +592,7 @@ def get_order_kd():
                 logger.error("未能找到并点击目标报表")
 
         except Exception as e:
-            print(f"打开 重复工单-宽带故障 出错:{e}")
+            logger.info(f"打开 重复工单-宽带故障 出错:{e}")
 
 
 # 宽带在线预处理率
@@ -626,9 +623,9 @@ def get_order_kd_online():
                 tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
                 time.sleep(5)
 
-                kdonlinepre = get_table_value_by_row_column(tab1, "合计", '整体预处理率')
+                kdonlinepre = get_table_value_by_row_column(tab1, "合计", '整体预处理率', True)
                 if kdonlinepre is not None:
-                    print(f"获取到 宽带在线预处理率 值: {kdonlinepre}")
+                    logger.info(f"获取到 宽带在线预处理率 值: {kdonlinepre}")
 
                     # 立即入库
                     insert_indicator_data(p_day_id, 'kdonlinepre', kdonlinepre)
@@ -641,7 +638,7 @@ def get_order_kd_online():
                 logger.error("未能找到并点击目标报表")
 
         except Exception as e:
-            print(f"打开 宽带预处理(新) 出错:{e}")
+            logger.info(f"打开 宽带预处理(新) 出错:{e}")
 
 
 # 宽带故障预处理及时率
@@ -672,9 +669,9 @@ def get_order_kd_pre():
                 tab1.ele('xpath://*[@id="fr-btn-查询"]/div/em/button').click()
                 time.sleep(5)
 
-                kdorderpre = get_table_value_by_row_column(tab1, "合计", '客服中心1小时及时率')
+                kdorderpre = get_table_value_by_row_column(tab1, "合计", '客服中心1小时及时率', True)
                 if kdorderpre is not None:
-                    print(f"获取到 宽带故障预处理及时率 值: {kdorderpre}")
+                    logger.info(f"获取到 宽带故障预处理及时率 值: {kdorderpre}")
 
                     # 立即入库
                     insert_indicator_data(p_day_id, 'kdorderpre', kdorderpre)
@@ -687,7 +684,7 @@ def get_order_kd_pre():
                 logger.error("未能找到并点击目标报表")
 
         except Exception as e:
-            print(f"打开 宽带预处理(新) 出错:{e}")
+            logger.info(f"打开 宽带预处理(新) 出错:{e}")
 
 
 if __name__ == "__main__":
@@ -695,7 +692,7 @@ if __name__ == "__main__":
     get_strictest_work_oder()
     get_order_duplicate()
     get_order_wh_been()
-    get_order_yd()
-    get_order_kd()
+    get_order_yd()  ##
+    get_order_kd()  ##
     get_order_kd_online()
     get_order_kd_pre()

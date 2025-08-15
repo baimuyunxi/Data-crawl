@@ -12,8 +12,8 @@ def main():
     chrome_options = (ChromiumOptions(read_file=False).set_browser_path(r'./Chrome/App/chrome.exe'))
 
     # 创建ChromiumOptions实例并配置启动参数
-    chrome_options.set_argument('--ssl-version-min=tls1')
-    chrome_options.set_argument('--ssl-version-max=tls1.2')
+    # chrome_options.set_argument('--ssl-version-min=tls1')
+    # chrome_options.set_argument('--ssl-version-max=tls1.2')
     chrome_options.set_argument('--ignore-certificate-errors')
     chrome_options.set_argument('--ignore-ssl-errors')
 
@@ -51,7 +51,15 @@ def main():
     browser.ele(
         'xpath://*[@id="root"]/div/section/section/main/div/div[3]/div/div[2]/div/span/span/span/button').click()
 
-    # browser.close()
+    get_strictest_work_oder()
+    get_order_duplicate()
+    get_order_wh_been()
+    get_order_yd()  ##
+    get_order_kd()  ##
+    get_order_kd_online()
+    get_order_kd_pre()
+
+    browser.close()
 
 
 if __name__ == "__main__":
