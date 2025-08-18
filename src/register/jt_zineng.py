@@ -35,8 +35,10 @@ def main():
     logger.info("访问集团4A平台网站...")
     try:
         browser.get("https://sdpc.dianxin.com")
-        time.sleep(10)
+        time.sleep(20)
         logger.info("网站访问成功")
+        browser.refresh()
+        time.sleep(10)
     except Exception as e:
         logger.error(f"网站访问失败: {e}")
         raise
@@ -50,7 +52,7 @@ def main():
         time.sleep(2)
 
         # 输入密码
-        user_password = browser.ele('xpath://*[@id="authen1Form"]/ul/li[2]/div', timeout=5)
+        user_password = browser.ele('xpath://*[@id="j_password"]', timeout=5)
         user_password.input('Zyx.131471408661')
         time.sleep(2)
 
