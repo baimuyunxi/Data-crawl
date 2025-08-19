@@ -9,11 +9,11 @@ import time
 
 import schedule
 
+from src.register import Decision_system  # 新增导入
 from src.register import IM_platform
 # 导入需要执行的模块
 from src.register import jt_zineng
 from src.register import management
-from src.register import Decision_system  # 新增导入
 
 # 获取exe文件所在目录，确保日志文件在正确位置
 if getattr(sys, 'frozen', False):
@@ -107,9 +107,9 @@ class DailyScheduler:
 
         # 按顺序执行三个任务
         tasks = [
-            ("智能客服系统", jt_zineng),
             ("管理系统", management),
-            ("IM平台", IM_platform)
+            ("IM平台", IM_platform),
+            ("智能客服系统", jt_zineng)
         ]
 
         for i, (task_name, task_module) in enumerate(tasks, 1):
@@ -135,7 +135,7 @@ class DailyScheduler:
         transport_logger.info("=" * 80)
 
     def decision_job(self):
-        """每日2:40执行的决策系统任务"""
+        """每日14:10执行的决策系统任务"""
         job_start_time = datetime.datetime.now()
         self.decision_task_count += 1
         self.success_count = 0
@@ -182,7 +182,7 @@ class DailyScheduler:
         now = datetime.datetime.now()
         next_run = now.replace(hour=14, minute=10, second=0, microsecond=0)
 
-        # 如果今天的2:40已经过了，则计算明天的2:40
+        # 如果今天的14:10已经过了，则计算明天的14:10
         if next_run <= now:
             next_run += datetime.timedelta(days=1)
 
@@ -200,13 +200,13 @@ class DailyScheduler:
 
         # 设置每日08:10的定时任务
         schedule.every().day.at("08:10").do(self.daily_job)
-        # 新增：设置每日02:40的决策系统定时任务
-        schedule.every().day.at("02:40").do(self.decision_job)
+        # 新增：设置每日14:10的决策系统定时任务
+        schedule.every().day.at("14:10").do(self.decision_job)
 
         next_run = self.get_next_run_time()
         next_decision_run = self.get_next_decision_run_time()
         logger.info(f"已设置每日08:10定时任务，下次执行时间: {next_run}")
-        logger.info(f"已设置每日02:40决策系统任务，下次执行时间: {next_decision_run}")
+        logger.info(f"已设置每日14:10决策系统任务，下次执行时间: {next_decision_run}")
 
         # 显示系统信息
         logger.info("=" * 50)

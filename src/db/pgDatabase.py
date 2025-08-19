@@ -195,6 +195,67 @@ class OperatePgsql(object):
             logger.error(f"数据库连接测试失败: {e}")
             return False
 
+    def _do_update_online_rate(self, connection, p_day_id):
+        """实际执行在线客户比率更新操作的函数"""
+        cursor = None
+        try:
+            cursor = connection.cursor()
+
+            # 构建更新SQL，使用NUMERIC类型避免整数除法精度丢失
+            sql = """
+                  UPDATE central_indicator_monitor_data
+                  SET onlinecustrate = CASE
+                                           WHEN wanvolumecnt > 0 THEN
+                                               ROUND( \
+                                                       (xiaozicnt + digitalhumancnt + wordcallinct + farcabinetct):: NUMERIC / wanvolumecnt * 100, \
+                                                       2)
+                                           ELSE 0
+                      END
+                  WHERE p_day_id = %s \
+                  """
+
+            # 执行更新
+            cursor.execute(sql, (p_day_id,))
+            affected_rows = cursor.rowcount
+
+            # 提交事务
+            connection.commit()
+            logger.info(f"在线客户比率更新完成，影响行数: {affected_rows}")
+
+            return affected_rows
+
+        except Exception as e:
+            logger.error(f"更新在线客户比率异常: {e}")
+            if connection and not connection.closed:
+                connection.rollback()
+            raise  # 重新抛出异常，让重试机制处理
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except Exception as cursor_error:
+                    logger.warning(f"关闭游标时出错: {cursor_error}")
+
+    def update_online_customer_rate(self, p_day_id):
+        """
+        更新指定日期的在线客户比率
+        计算公式: (xiaozicnt + digitalhumancnt + wordcallinct + farcabinetct) / wanvolumecnt * 100
+
+        Args:
+            p_day_id: 日期ID，格式如 '20250801'
+
+        Returns:
+            int: 受影响的行数，失败时返回0
+        """
+        try:
+            logger.info(f"开始更新日期 {p_day_id} 的在线客户比率")
+            affected_rows = self._execute_with_retry(self._do_update_online_rate, p_day_id)
+            logger.info(f"在线客户比率更新操作完成，受影响行数: {affected_rows}")
+            return affected_rows
+        except Exception as e:
+            logger.error(f"更新在线客户比率最终失败: {e}")
+            return 0
+
     def close(self):
         """
         关闭数据库连接（在按需连接模式下，此方法主要用于兼容性）

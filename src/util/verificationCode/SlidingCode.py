@@ -100,6 +100,35 @@ def handle_image(browser):
         print("未找到滑动块元素")
 
 
+def handle_image_xiaozi(browser):
+    """处理滑动验证码"""
+    # 定位验证码元素
+    captcha_element = browser.ele('xpath://*[@id="ice-container"]/div/div/div[2]/div/div/div[2]/div/canvas[1]')
+
+    # 截屏保存该元素
+    captcha_element.get_screenshot(path='captcha_screenshot.png')
+
+    # 识别验证码获取距离
+    captcha_code = verify()
+
+    # 定位滑动块元素
+    slider_element = browser.ele('xpath://*[@id="ice-container"]/div/div/div[2]/div/div/div[2]/div/div/div[1]')
+
+    if slider_element:
+        print(f"开始滑动验证码，距离: {captcha_code}像素")
+
+        # 模拟滑动
+        simulate_drag(browser, slider_element, int(captcha_code) + 4)
+
+        print("滑动完成")
+
+        # 等待验证结果
+        time.sleep(2)
+
+    else:
+        print("未找到滑动块元素")
+
+
 if __name__ == '__main__':
     chrome_options = (ChromiumOptions(read_file=False).set_browser_path(r'./Chrome/App/chrome.exe'))
 

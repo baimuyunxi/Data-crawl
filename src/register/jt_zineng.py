@@ -7,6 +7,7 @@ from DrissionPage import Chromium, ChromiumOptions
 from src.AuthCode.mesmain import Email189VerificationTool
 from src.intelligent.navigation import jt_4a_main
 from src.util.verificationCode.ImageCode import recognize_captcha_simple
+from src.util.verificationCode.SlidingCode import handle_image_xiaozi
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,62 @@ def main():
         logger.info("数字人运营管理平台登录成功")
     except Exception as e:
         logger.error(f"数字人运营管理平台登录失败: {e}")
+        raise
+
+    # 小知运营管理平台 - 创建另一个新标签页
+    logger.info("创建新标签页，导航到小知运营管理平台...")
+    try:
+        tab_3 = browser_instance.new_tab()  # 先创建空标签页
+        tab_3.get('http://10.135.30.29:8082/km/#/user/login')  # 然后导航到目标地址
+        time.sleep(3)
+        logger.info("小知运营管理平台标签页创建成功")
+    except Exception as e:
+        logger.error(f"小知运营管理平台标签页创建失败: {e}")
+        raise
+
+    logger.info("小知运营管理平台登录中...")
+    try:
+        digital_name = tab_3.ele(
+            'xpath://*[@id="ice-container"]/div/div/div[2]/div/div/form/div[1]/div/div/span/span/input')
+        digital_name.input('hn_zhuyx')
+        time.sleep(2)
+
+        digital_password = tab_3.ele(
+            'xpath://*[@id="ice-container"]/div/div/div[2]/div/div/form/div[2]/div/div/span/span/input')
+        digital_password.input('M2s5#6hL')
+        time.sleep(2)
+
+        # 短信
+        logger.info("点击获取短信验证码...")
+        try:
+            tab_3.ele('xpath://*[@id="ice-container"]/div/div/div[2]/div/div/form/div[3]/div/div/span/p/button').click()
+            # 滑动验证
+            logger.info("处理滑动验证码...")
+            try:
+                handle_image_xiaozi(tab_3)
+                logger.info("滑动验证码处理成功")
+            except Exception as e:
+                logger.error(f"滑动验证码处理失败: {e}")
+                raise
+            mail_time = datetime.now()
+            email_tool = Email189VerificationTool()
+            result = email_tool.get_verification_code("电信小知", mail_time)
+            email_code = tab_3.ele(
+                'xpath://*[@id="ice-container"]/div/div/div[2]/div/div/form/div[3]/div/div/span/p/span/input')
+            logger.info(f"获取到 短信验证码 为: {result}")
+            email_code.input(result)
+            logger.info("短信验证码处理成功")
+        except Exception as e:
+            logger.error(f"短信验证码处理失败: {e}")
+            raise
+        time.sleep(3)
+
+        tab_3.ele('xpath://*[@id="ice-container"]/div/div/div[2]/div/div/form/div[4]/div/div/span/button').click()
+        time.sleep(3)
+
+        logger.info("小知运营管理平台登录成功")
+    except Exception as e:
+        logger.error(f"小知运营管理平台登录失败: {e}")
         raise
 
     logger.info("所有平台登录完成，开始执行主要功能...")

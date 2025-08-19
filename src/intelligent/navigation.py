@@ -114,7 +114,7 @@ def jt_4a_main():
 
     # 生成日期字段
     p_day_id = yesterday.strftime('%Y%m%d')
-    now_today = yesterday.strftime('%Y 年 %m 月 %d 日')
+    yes_today = yesterday.strftime('%Y-%m-%d')
 
     # 连接浏览器
     browser = Chromium()
@@ -322,6 +322,53 @@ def jt_4a_main():
             tab.ele('xpath://*[@id="app"]/div/div/section/div[1]/div[1]/div[1]/div/button').click()
         except Exception as e:
             logger.error(f"获取 数字人生产管理平台 数据失败: {e}")
+
+        finally:
+            tab.close()
+
+    logger.info('ICSR-智能客服机器人语义训练平台')
+
+    try:
+        tab = browser.get_tab(title='ICSR-智能客服机器人语义训练平台')
+        if tab is None:
+            logger.warning("未找到 ICSR-智能客服机器人语义训练平台 标签页，跳过该部分")
+        else:
+            logger.info('刷新浏览器tab页')
+            tab.refresh()
+            time.sleep(5)
+    except Exception as e:
+        logger.error(f"获取 ICSR-智能客服机器人语义训练平台 标签页失败: {e}，跳过该部分")
+        tab = None
+
+    if tab is not None:
+        try:
+            tab.ele('xpath://*[@id="ice-container"]/div/div[2]/div[1]/div/div[1]/ul/li[7]/div/div/span/i').click()
+            time.sleep(2)
+            tab.ele(
+                'xpath://*[@id="ice-container"]/div/div[2]/div[1]/div/div[1]/ul/li[7]/ul/li[2]/div/span/span').click()
+            time.sleep(5)
+            start_time = tab.ele('xpath://*[@id="datetimepicker-startYMD"]')
+            start_time.input(yes_today, clear=True)
+            time.sleep(2)
+            end_time = tab.ele('xpath://*[@id="datetimepicker-endYMD"]')
+            end_time.input(yes_today, clear=True)
+            time.sleep(2)
+            tab.ele('xpath://*[@id="btn_search_report"]').click()
+            time.sleep(5)
+            logger.info('开始读取数据')
+            element = tab.ele('xpath://*[@id="data_table"]/tbody/tr[1]/td[3]')
+            if element:
+                xiaozicnt = element.text.strip()
+                logger.info(f"获取到 小知服务量 值: {xiaozicnt}")
+                # 立即入库
+                insert_indicator_data(p_day_id, 'xiaozicnt', xiaozicnt)
+                time.sleep(3)
+                xp.update_online_customer_rate(p_day_id)
+            else:
+                logger.error("未找到 小知服务量 元素")
+
+        except Exception as e:
+            logger.error(f"获取 ICSR-智能客服机器人语义训练平台 数据失败: {e}")
 
         finally:
             tab.close()
