@@ -114,7 +114,7 @@ def main():
     try:
         tab_1 = browser_instance.new_tab()  # 先创建空标签页
         tab_1.get('http://10.146.67.185:18090/znkf2.0/login.html')  # 然后导航到目标地址
-        time.sleep(3)
+        time.sleep(60)
         logger.info("运管2.0平台标签页创建成功")
     except Exception as e:
         logger.error(f"运管2.0平台标签页创建失败: {e}")
@@ -165,7 +165,7 @@ def main():
     try:
         tab_2 = browser_instance.new_tab()  # 先创建空标签页
         tab_2.get('http://10.143.168.41:8080/szzcplatformweb')  # 然后导航到目标地址
-        time.sleep(3)
+        time.sleep(60)
         logger.info("数字人运营管理平台标签页创建成功")
     except Exception as e:
         logger.error(f"数字人运营管理平台标签页创建失败: {e}")
@@ -198,7 +198,7 @@ def main():
     try:
         tab_3 = browser_instance.new_tab()  # 先创建空标签页
         tab_3.get('http://10.135.30.29:8082/km/#/user/login')  # 然后导航到目标地址
-        time.sleep(3)
+        time.sleep(60)
         logger.info("小知运营管理平台标签页创建成功")
     except Exception as e:
         logger.error(f"小知运营管理平台标签页创建失败: {e}")
