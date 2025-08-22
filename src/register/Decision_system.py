@@ -61,6 +61,9 @@ def main():
     get_order_kd_online()
     get_order_kd_pre()
 
+    browser.ele('xpath://*[@id="root"]/div/section/section/header/div/div/div/div[2]/button[1]').click()
+    time.sleep(5)
+
     browser.close()
 
 

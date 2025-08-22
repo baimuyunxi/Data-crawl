@@ -522,7 +522,7 @@ def query_cf_data(browser):
             tab.ele('xpath://span[@id="undefined_4_switch"]').click()
             time.sleep(5)
             logger.info('开始拖拽')
-            tab.actions.hold('xpath://span[@id="undefined_20_span"]/span[1]').release(
+            tab.actions.hold('xpath://*[@id="undefined_20_span"]/span').release(
                 'xpath://div[contains(@class,"left ui-droppable")]')
             tab.actions.release()
             time.sleep(20)

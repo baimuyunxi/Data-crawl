@@ -135,14 +135,14 @@ class DailyScheduler:
         transport_logger.info("=" * 80)
 
     def decision_job(self):
-        """每日14:10执行的决策系统任务"""
+        """每日15:10执行的决策系统任务"""
         job_start_time = datetime.datetime.now()
         self.decision_task_count += 1
         self.success_count = 0
         self.failed_count = 0
 
         logger.info("=" * 80)
-        logger.info(f"开始执行每日14:10决策系统任务 - 第{self.decision_task_count}次执行")
+        logger.info(f"开始执行每日15:10决策系统任务 - 第{self.decision_task_count}次执行")
         logger.info(f"当前时间: {job_start_time}")
         logger.info("=" * 80)
 
@@ -180,9 +180,9 @@ class DailyScheduler:
     def get_next_decision_run_time(self):
         """获取下次决策系统运行时间"""
         now = datetime.datetime.now()
-        next_run = now.replace(hour=14, minute=10, second=0, microsecond=0)
+        next_run = now.replace(hour=15, minute=10, second=0, microsecond=0)
 
-        # 如果今天的14:10已经过了，则计算明天的14:10
+        # 如果今天的15:10已经过了，则计算明天的15:10
         if next_run <= now:
             next_run += datetime.timedelta(days=1)
 
@@ -200,13 +200,13 @@ class DailyScheduler:
 
         # 设置每日08:10的定时任务
         schedule.every().day.at("08:10").do(self.daily_job)
-        # 新增：设置每日14:10的决策系统定时任务
-        schedule.every().day.at("14:10").do(self.decision_job)
+        # 新增：设置每日15:10的决策系统定时任务
+        schedule.every().day.at("15:10").do(self.decision_job)
 
         next_run = self.get_next_run_time()
         next_decision_run = self.get_next_decision_run_time()
         logger.info(f"已设置每日08:10定时任务，下次执行时间: {next_run}")
-        logger.info(f"已设置每日14:10决策系统任务，下次执行时间: {next_decision_run}")
+        logger.info(f"已设置每日15:10决策系统任务，下次执行时间: {next_decision_run}")
 
         # 显示系统信息
         logger.info("=" * 50)
@@ -242,7 +242,7 @@ class DailyScheduler:
 
                     logger.info(f"[状态检查] 当前时间: {current_time.strftime('%Y-%m-%d %H:%M')}")
                     logger.info(f"  距离8:10任务还有: {hours}小时{minutes}分钟")
-                    logger.info(f"  距离14:10决策任务还有: {decision_hours}小时{decision_minutes}分钟")
+                    logger.info(f"  距离15:10决策任务还有: {decision_hours}小时{decision_minutes}分钟")
 
                 time.sleep(60)  # 每分钟检查一次
 
@@ -268,7 +268,7 @@ def main():
     logger.info("- 执行时间1: 每日08:10")
     logger.info("- 执行顺序: jt_zineng.py -> management.py -> IM_platform.py")
     logger.info("- 任务间隔: 5秒")
-    logger.info("- 执行时间2: 每日14:10")  # 新增任务说明
+    logger.info("- 执行时间2: 每日15:10")  # 新增任务说明
     logger.info("- 执行内容: Decision_system.py")  # 新增任务说明
     logger.info("=" * 50)
 
