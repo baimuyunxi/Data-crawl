@@ -342,7 +342,7 @@ def jt_4a_main():
 
     if tab is not None:
         try:
-            tab.ele('xpath://*[@id="ice-container"]/div/div[2]/div[1]/div/div[1]/ul/li[7]/div/div/span/i').click()
+            tab.ele('xpath://*[@id="ice-container"]/div/div[2]/div[1]/div/div[1]/ul/li[7]/div').click()
             time.sleep(2)
             tab.ele(
                 'xpath://*[@id="ice-container"]/div/div[2]/div[1]/div/div[1]/ul/li[7]/ul/li[2]/div/span/span').click()
