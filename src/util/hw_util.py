@@ -477,7 +477,8 @@ def query_zun_old(tab):
             time.sleep(2)
             dl_input.input('尊老')
             time.sleep(3)
-            tab.ele('xpath://form/div[1]/div[5]/div/div/div/div/div[3]/div[1]/div[1]/ul/li[7]/span').click()
+            tab.ele(
+                'xpath://*[@id="DF6A15781B661439A"]/form/div/div[2]/div/div/div/div/div/form/div[1]/div[5]/div/div/div/div/div[3]/div[1]/div[1]/ul/li[27]/span').click()
             time.sleep(3)
             tab.ele('xpath://button[@id="searchColClass-search"]', timeout=3).click()
             time.sleep(5)
