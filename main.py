@@ -107,9 +107,9 @@ class DailyScheduler:
 
         # 按顺序执行三个任务
         tasks = [
-            ("管理系统", management),
             ("IM平台", IM_platform),
-            ("智能客服系统", jt_zineng)
+            ("智能客服系统", jt_zineng),
+            ("管理系统", management),
         ]
 
         for i, (task_name, task_module) in enumerate(tasks, 1):
